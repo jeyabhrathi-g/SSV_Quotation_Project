@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SSV Food Technology - ERP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f6f9; }
+        .sidebar { height: 100vh; background: #2c3e50; color: white; padding-top: 20px; position: fixed; width: 250px;}
+        .sidebar a { color: #adb5bd; text-decoration: none; display: block; padding: 10px 20px; margin-bottom: 5px; cursor: pointer;}
+        .sidebar a:hover, .sidebar a.active { background: #34495e; color: white; border-left: 4px solid #3498db; }
+        .main-content { margin-left: 250px; padding: 30px; }
+        .app-section { display: none; }
+        .app-section.active { display: block; }
+
+        /* PDF Preview Styling */
+        .pdf-preview { background: white; padding: 20px 40px; box-shadow: 0 0 15px rgba(0,0,0,0.2); min-height: 800px; border: 1px solid #ddd; font-family: Arial, sans-serif; font-size: 12px; color: #000; }
+        .pdf-header { text-align: center; margin-bottom: 20px; }
+        .pdf-table { width: 100%; margin-bottom: 10px; border: 1px solid #000; border-collapse: collapse; }
+        .pdf-table th, .pdf-table td { border: 1px solid #000; padding: 5px; }
+        .pdf-table th { background: #f0f0f0; text-align: center; font-weight: bold; }
+        .info-box { border: 1px solid #000; padding: 5px; margin-bottom: 10px; }
+        .terms-box { border: 1px solid #000; font-size: 10px; padding: 5px; }
+        .bank-box { border: 1px solid #000; padding: 5px; font-size: 11px; }
+        
+        @media print {
+            .sidebar, .form-side { display: none !important; }
+            .main-content { margin-left: 0; padding: 0; }
+            .pdf-preview { box-shadow: none; border: none; width: 100%; min-height: auto; padding: 0;}
+            body { background: white; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h4 class="text-center mb-4">SSV Food Tech</h4>
+    <a class="nav-link active" onclick="switchTab('new-customer', this)">New Customer</a>
+    <a class="nav-link" onclick="switchTab('product-details', this)">Product Details</a>
+    <a class="nav-link" onclick="switchTab('new-quotation', this)">New Quotation</a>
+    <a class="nav-link" onclick="switchTab('customer-dash', this)">Customer Dashboard</a>
+    <a class="nav-link" onclick="switchTab('quotation-dash', this)">Quotation Dashboard</a>
+    <a class="nav-link" onclick="switchTab('invoice-dash', this)">Invoice Dashboard</a>
+</div>
+
+<div class="main-content">
+    
+    <!-- 1. NEW CUSTOMER -->
+    <div id="new-customer" class="app-section active">
+        <h3>New Customer</h3>
+        <div class="card p-4 mt-3" style="max-width: 600px;">
+            <input type="hidden" id="cust-id">
+            <input type="text" id="cust-name" class="form-control mb-3" placeholder="Customer Name">
+            <textarea id="cust-address" class="form-control mb-3" placeholder="Address"></textarea>
+            <input type="email" id="cust-email" class="form-control mb-3" placeholder="Email">
+            <input type="text" id="cust-phone" class="form-control mb-3" placeholder="Phone Number">
+            <button class="btn btn-primary" onclick="saveCustomer()">Save Customer</button>
+        </div>
+    </div>
+
+    <!-- 2. PRODUCT DETAILS -->
+    <div id="product-details" class="app-section">
+        <h3>Product Details</h3>
+        <div class="card p-4 mt-3 mb-4" style="max-width: 600px;">
+            <input type="text" id="prod-name" class="form-control mb-3" placeholder="Product Name">
+            <input type="number" id="prod-rate" class="form-control mb-3" placeholder="Base Rate (₹)">
+            <button class="btn btn-primary" onclick="saveProduct()">Save Product</button>
+        </div>
+        <h4>All Products</h4>
+        <table class="table table-striped mt-3 bg-white">
+            <thead><tr><th>ID</th><th>Name</th><th>Rate</th></tr></thead>
+            <tbody id="product-table-body"></tbody>
+        </table>
+    </div>
+
+    <!-- 3. NEW QUOTATION -->
+    <div id="new-quotation" class="app-section">
+        <div class="row">
+            <div class="col-lg-4 form-side h-100 overflow-auto">
+                <h4>Quotation Builder</h4>
+                <div class="card p-3 mb-3">
+                    <label>Select Customer</label>
+                    <select id="q-customer" class="form-select mb-2" onchange="updateLivePreview()"></select>
+                    
+                    <label>Select Product</label>
+                    <select id="q-product" class="form-select mb-3" onchange="fetchProductRate(); updateLivePreview()"></select>
+                    
+                    <div class="row">
+                        <div class="col-6 mb-2"><label>Qty</label><input type="number" id="q-qty" class="form-control" value="1" oninput="calculateTotal()"></div>
+                        <div class="col-6 mb-2"><label>Rate (₹)</label><input type="number" id="q-rate" class="form-control" oninput="calculateTotal()"></div>
+                        <div class="col-4 mb-2"><label>GST %</label><input type="number" id="q-gst" class="form-control" value="0" oninput="calculateTotal()"></div>
+                        <div class="col-4 mb-2"><label>CGST %</label><input type="number" id="q-cgst" class="form-control" value="9" oninput="calculateTotal()"></div>
+                        <div class="col-4 mb-2"><label>SGST %</label><input type="number" id="q-sgst" class="form-control" value="9" oninput="calculateTotal()"></div>
+                        <div class="col-12 mb-2"><label>Discount (₹)</label><input type="number" id="q-discount" class="form-control" value="0" oninput="calculateTotal()"></div>
+                        <div class="col-6 mb-3"><label>Quotation Date</label><input type="date" id="q-date" class="form-control" onchange="updateLivePreview()"></div>
+                        <div class="col-6 mb-3"><label>Expiry Date</label><input type="date" id="q-expiry" class="form-control" onchange="updateLivePreview()"></div>
+                    </div>
+                    <h5>Total: ₹<span id="q-total">0.00</span></h5>
+                    <div class="d-flex gap-2 mt-3">
+                        <button class="btn btn-success flex-grow-1" onclick="saveQuotation()">Save DB</button>
+                        <button class="btn btn-secondary flex-grow-1" onclick="window.print()">Print PDF</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PDF PREVIEW -->
+            <div class="col-lg-8">
+                <div class="pdf-preview">
+                    <div class="pdf-header border-bottom border-dark pb-2">
+                        <h4 class="mb-1 fw-bold">SSV Food Technology</h4>
+                        <p class="mb-0" style="font-size: 10px;">1/145A, Sarogini Nagar, Kalaikoli Nagar, Krishnapuram, Tirunelveli-627011 | GSTIN: 33SGXP55865Q1ZJ</p>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-12">
+                            <table style="width: 100%; border: 1px solid #000; font-size: 11px;">
+                                <tr>
+                                    <!-- ADDED SPAN ID HERE TO UPDATE QUOTATION NO -->
+                                    <td style="border: 1px solid #000; padding: 5px; width: 40%;"><strong>Quotation No:</strong> <span id="prev-quotation-no">Auto-Generated</span></td>
+                                    <td style="border: 1px solid #000; padding: 5px; width: 30%;"><strong>Quotation Date:</strong> <span id="prev-date"></span></td>
+                                    <td style="border: 1px solid #000; padding: 5px; width: 30%;"><strong>Expiry Date:</strong> <span id="prev-expiry"></span></td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2" style="border: 1px solid #000; padding: 5px; vertical-align: top;">
+                                        <strong>BILL TO</strong><br><span id="prev-customer-name">[Customer Name]</span><br><span id="prev-customer-address">[Address]</span>
+                                    </td>
+                                    <td style="border: 1px solid #000; padding: 5px; vertical-align: top;">
+                                        <strong>SHIP TO</strong><br><span id="prev-ship-name">[Customer Name]</span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    <table class="pdf-table mt-3">
+                        <thead><tr><th>S.NO</th><th>ITEMS</th><th>QTY</th><th>RATE</th><th>Tax %</th><th>AMOUNT</th></tr></thead>
+                        <tbody>
+                            <tr><td class="text-center">1</td><td id="prev-product">[Product]</td><td class="text-center" id="prev-qty">1</td><td class="text-end" id="prev-rate">0.00</td><td class="text-center" id="prev-tax">18%</td><td class="text-end" id="prev-amount">0.00</td></tr>
+                            <tr><td colspan="5" class="text-end fw-bold">Grand Total</td><td class="text-end fw-bold" id="prev-grandtotal">0.00</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="info-box"><strong>Amount In Words: </strong><span id="prev-words">Zero Only</span></div>
+                    <div class="row g-2">
+                        <div class="col-8">
+                            <div class="bank-box h-100">
+                                <h6 class="fw-bold mb-1">Bank Details</h6>
+                                <p class="mb-0">Name: Sathya R | IFSC: IOBA0002711 | A/C: 271101000008129<br>Bank: Indian Overseas Bank, Tirunelveli</p>
+                            </div>
+                        </div>
+                        <div class="col-4"><div class="bank-box h-100 text-center d-flex align-items-center justify-content-center">UPI ID: 8807270873@ibl</div></div>
+                    </div>
+                    <div class="row mt-2 g-2">
+                        <div class="col-8">
+                            <div class="terms-box h-100">
+                                <strong style="text-decoration: underline;">Terms:</strong><br>50% Advance with PO | Delivery: 30 Working Days | Warranty: 6 Months on Motor.
+                            </div>
+                        </div>
+                        <div class="col-4 text-center border p-2 d-flex flex-column justify-content-between" style="font-size: 11px; min-height: 80px;">
+                            <span>Authorized Signatory</span>
+                            <strong>SSV Food Tech</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DASHBOARDS -->
+    <div id="customer-dash" class="app-section">
+        <h3>Customer Dashboard</h3>
+        <table class="table table-striped mt-3 bg-white">
+            <thead>
+                <tr><th>Name</th><th>Phone</th><th>Email</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="customer-table-body"></tbody>
+        </table>
+    </div>
+
+    <div id="quotation-dash" class="app-section">
+        <h3>Active Quotations</h3>
+        <table class="table table-striped mt-3 bg-white">
+            <thead>
+                <tr><th>Quote No</th><th>Date</th><th>Customer</th><th>Product</th><th>Total</th><th>Action</th></tr>
+            </thead>
+            <tbody id="quotation-table-body"></tbody>
+        </table>
+    </div>
+
+    <div id="invoice-dash" class="app-section">
+        <h3>Generated Invoices</h3>
+        <table class="table table-striped mt-3 bg-white">
+            <thead>
+                <tr><th>Invoice No</th><th>Date</th><th>Customer</th><th>Product</th><th>Total</th></tr>
+            </thead>
+            <tbody id="invoice-table-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // --- UTILITIES ---
+    function numberToWords(num) {
+        let a =['','One ','Two ','Three ','Four ', 'Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
+        let b =['', '', 'Twenty','Thirty','Forty','Fifty', 'Sixty','Seventy','Eighty','Ninety'];
+        if ((num = num.toString()).length > 9) return 'overflow';
+        let n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+        if (!n) return; let str = '';
+        str += (n[1] != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'Crore ' : '';
+        str += (n[2] != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'Lakh ' : '';
+        str += (n[3] != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'Thousand ' : '';
+        str += (n[4] != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'Hundred ' : '';
+        str += (n[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
+        return str.trim() === '' ? 'Zero Only' : str.trim() + ' Only';
+    }
+
+    function formatDateForDisplay(dateString) {
+        if(!dateString) return "";
+        const[year, month, day] = dateString.split('-');
+        return `${day}/${month}/${year}`;
+    }
+
+    function switchTab(sectionId, element) {
+        document.querySelectorAll('.app-section').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.sidebar a').forEach(el => el.classList.remove('active'));
+        document.getElementById(sectionId).classList.add('active');
+        element.classList.add('active');
+        loadDataForSection(sectionId);
+    }
+
+    function loadDataForSection(sectionId) {
+        if(sectionId === 'product-details') fetchProducts();
+        if(sectionId === 'customer-dash') fetchCustomers();
+        if(sectionId === 'new-quotation') {
+            fetchDropdownData();
+            
+            // Reset Auto-Generated text for a fresh quotation
+            document.getElementById('prev-quotation-no').innerText = 'Auto-Generated';
+            
+            // Auto-fill dates
+            let today = new Date();
+            let exp = new Date(); 
+            exp.setDate(today.getDate() + 15);
+            
+            // Set values to inputs
+            document.getElementById('q-date').value = today.toISOString().split('T')[0];
+            document.getElementById('q-expiry').value = exp.toISOString().split('T')[0];
+            
+            updateLivePreview();
+        }
+        if(sectionId === 'quotation-dash') fetchQuotations();
+        if(sectionId === 'invoice-dash') fetchInvoices();
+    }
+
+    // --- API CALLS ---
+    async function fetchCustomers() {
+        const res = await fetch('/api/customers');
+        const data = await res.json();
+        const tbody = document.getElementById('customer-table-body');
+        tbody.innerHTML = '';
+        data.forEach(c => {
+            tbody.innerHTML += `<tr><td>${c.name}</td><td>${c.phone}</td><td>${c.email}</td>
+            <td><button class="btn btn-sm btn-danger" onclick="deleteCustomer(${c.id})">Delete</button></td></tr>`;
+        });
+    }
+
+    async function saveCustomer() {
+        const id = document.getElementById('cust-id').value;
+        const data = {
+            name: document.getElementById('cust-name').value,
+            address: document.getElementById('cust-address').value,
+            email: document.getElementById('cust-email').value,
+            phone: document.getElementById('cust-phone').value
+        };
+        const method = id ? 'PUT' : 'POST';
+        if (id) data.id = id;
+
+        await fetch('/api/customers', { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+        alert('Customer Saved!');
+        document.getElementById('cust-name').value = '';
+        document.getElementById('cust-address').value = '';
+        document.getElementById('cust-email').value = '';
+        document.getElementById('cust-phone').value = '';
+    }
+
+    async function deleteCustomer(id) {
+        if(!confirm("Delete this customer?")) return;
+        await fetch(`/api/customers?id=${id}`, { method: 'DELETE' });
+        fetchCustomers();
+    }
+
+    async function fetchProducts() {
+        const res = await fetch('/api/products');
+        const data = await res.json();
+        const tbody = document.getElementById('product-table-body');
+        tbody.innerHTML = '';
+        data.forEach(p => {
+            tbody.innerHTML += `<tr><td>${p.id}</td><td>${p.name}</td><td>₹${p.rate}</td></tr>`;
+        });
+    }
+
+    async function saveProduct() {
+        const data = { name: document.getElementById('prod-name').value, rate: document.getElementById('prod-rate').value };
+        await fetch('/api/products', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+        alert('Product Saved!');
+        document.getElementById('prod-name').value = '';
+        document.getElementById('prod-rate').value = '';
+        fetchProducts();
+    }
+
+    // --- QUOTATION BUILDER ---
+    async function fetchDropdownData() {
+        const cRes = await fetch('/api/customers');
+        const pRes = await fetch('/api/products');
+        const customers = await cRes.json();
+        const products = await pRes.json();
+        
+        const cSelect = document.getElementById('q-customer');
+        const pSelect = document.getElementById('q-product');
+        
+        cSelect.innerHTML = '<option value="">Select Customer...</option>';
+        customers.forEach(c => cSelect.innerHTML += `<option value="${c.id}" data-address="${c.address}">${c.name}</option>`);
+        
+        pSelect.innerHTML = '<option value="">Select Product...</option>';
+        products.forEach(p => pSelect.innerHTML += `<option value="${p.id}" data-rate="${p.rate}">${p.name}</option>`);
+    }
+
+    function fetchProductRate() {
+        const pSelect = document.getElementById('q-product');
+        const opt = pSelect.options[pSelect.selectedIndex];
+        if(opt && opt.dataset.rate) {
+            document.getElementById('q-rate').value = opt.dataset.rate;
+            calculateTotal();
+        }
+    }
+
+    function calculateTotal() {
+        const qty = parseFloat(document.getElementById('q-qty').value) || 0;
+        const rate = parseFloat(document.getElementById('q-rate').value) || 0;
+        const gst = parseFloat(document.getElementById('q-gst').value) || 0;
+        const cgst = parseFloat(document.getElementById('q-cgst').value) || 0;
+        const sgst = parseFloat(document.getElementById('q-sgst').value) || 0;
+        const discount = parseFloat(document.getElementById('q-discount').value) || 0;
+
+        const subtotal = qty * rate;
+        const totalTaxesPercent = gst + cgst + sgst;
+        
+        const taxableAmount = subtotal - discount;
+        const taxAmount = taxableAmount * (totalTaxesPercent / 100);
+        const grandTotal = taxableAmount + taxAmount;
+
+        document.getElementById('q-total').innerText = grandTotal.toFixed(2);
+        
+        updateLivePreview(grandTotal, totalTaxesPercent);
+    }
+
+    function updateLivePreview(grandTotal = 0, totalTaxPercent = 0) {
+        const cSelect = document.getElementById('q-customer');
+        const pSelect = document.getElementById('q-product');
+        
+        const cOpt = cSelect.options[cSelect.selectedIndex];
+        const custName = cSelect.value ? cOpt.text : "[Customer Name]";
+        const custAddress = cSelect.value ? (cOpt.dataset.address || "") : "[Address]";
+        
+        document.getElementById('prev-customer-name').innerText = custName;
+        document.getElementById('prev-customer-address').innerText = custAddress;
+        document.getElementById('prev-ship-name').innerText = custName;
+        
+        const prodName = pSelect.value ? pSelect.options[pSelect.selectedIndex].text : "[Product]";
+        document.getElementById('prev-product').innerText = prodName;
+        
+        const qDate = document.getElementById('q-date').value;
+        const eDate = document.getElementById('q-expiry').value;
+        document.getElementById('prev-date').innerText = formatDateForDisplay(qDate);
+        document.getElementById('prev-expiry').innerText = formatDateForDisplay(eDate);
+
+        const qty = parseFloat(document.getElementById('q-qty').value) || 0;
+        const rate = parseFloat(document.getElementById('q-rate').value) || 0;
+        
+        if(totalTaxPercent === 0) {
+            totalTaxPercent = (parseFloat(document.getElementById('q-gst').value)||0) + (parseFloat(document.getElementById('q-cgst').value)||0) + (parseFloat(document.getElementById('q-sgst').value)||0);
+        }
+
+        document.getElementById('prev-qty').innerText = qty;
+        document.getElementById('prev-rate').innerText = rate.toFixed(2);
+        document.getElementById('prev-tax').innerText = totalTaxPercent + '%';
+        
+        const taxVal = (rate * qty) * (totalTaxPercent / 100);
+        document.getElementById('prev-amount').innerText = ((rate * qty) + taxVal).toFixed(2);
+        
+        const safeGrandTotal = grandTotal || parseFloat(document.getElementById('q-total').innerText) || 0;
+        document.getElementById('prev-grandtotal').innerText = safeGrandTotal.toFixed(2);
+        document.getElementById('prev-words').innerText = numberToWords(Math.round(safeGrandTotal));
+    }
+
+    // UPDATED FUNCTION: Fetch the saved number from Backend and show it immediately.
+    async function saveQuotation() {
+        const data = {
+            customer_id: document.getElementById('q-customer').value,
+            product_id: document.getElementById('q-product').value,
+            qty: document.getElementById('q-qty').value,
+            rate: document.getElementById('q-rate').value,
+            gst: document.getElementById('q-gst').value,
+            cgst: document.getElementById('q-cgst').value,
+            sgst: document.getElementById('q-sgst').value,
+            discount: document.getElementById('q-discount').value,
+            total: document.getElementById('q-total').innerText,
+            quotation_date: document.getElementById('q-date').value, 
+            expiry_date: document.getElementById('q-expiry').value
+        };
+
+        if(!data.customer_id || !data.product_id) return alert("Select Customer & Product!");
+
+        const response = await fetch('/api/quotations', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+
+        if(result && result.length > 0) {
+            // Backend auto-generates this and sends it back in the result
+            const newQuotationNo = result[0].quotation_no;
+            
+            // Instantly update the text on the PDF preview
+            document.getElementById('prev-quotation-no').innerText = newQuotationNo;
+            
+            alert(`Quotation Created Successfully! \nQuotation Number: ${newQuotationNo}`);
+        } else {
+            alert("Error creating quotation.");
+        }
+    }
+
+    // --- DASHBOARDS ---
+    async function fetchQuotations() {
+        const res = await fetch('/api/quotations');
+        const data = await res.json();
+        const tbody = document.getElementById('quotation-table-body');
+        tbody.innerHTML = '';
+        data.forEach(q => {
+            const dateStr = formatDateForDisplay(q.quotation_date) || "N/A";
+            tbody.innerHTML += `<tr>
+                <td><strong>${q.quotation_no}</strong></td>
+                <td>${dateStr}</td>
+                <td>${q.customers?.name || 'N/A'}</td>
+                <td>${q.products?.name || 'N/A'}</td>
+                <td>₹${q.total}</td>
+                <td><button class="btn btn-sm btn-warning" onclick="generateInvoice(${q.id})">Invoice</button></td>
+            </tr>`;
+        });
+    }
+
+    async function fetchInvoices() {
+        const res = await fetch('/api/invoices');
+        const data = await res.json();
+        const tbody = document.getElementById('invoice-table-body');
+        tbody.innerHTML = '';
+        data.forEach(inv => {
+            const dateStr = formatDateForDisplay(inv.quotation_date) || "N/A";
+            tbody.innerHTML += `<tr>
+                <td><strong>${inv.invoice_no}</strong></td>
+                <td>${dateStr}</td>
+                <td>${inv.customers?.name || 'N/A'}</td>
+                <td>${inv.products?.name || 'N/A'}</td>
+                <td>₹${inv.total}</td>
+            </tr>`;
+        });
+    }
+
+    async function generateInvoice(id) {
+        if(!confirm("Generate Invoice from this quotation?")) return;
+        await fetch('/api/generate_invoice', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({id: id})
+        });
+        alert("Invoice Generated Successfully!"); 
+        fetchQuotations(); 
+    }
+
+    window.onload = () => loadDataForSection('new-customer');
+</script>
+</body>
+</html>
