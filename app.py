@@ -5,19 +5,20 @@ from flask import Flask, render_template, request, jsonify
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
-# Local-la run panna mattum .env load aagum
+# Local development-க்காக மட்டும் .env லோடு செய்யும்
 load_dotenv()
 
 app = Flask(__name__)
 
-# Vercel deployment-ku ithu romba mukkiyam
-app_instance = app 
+# Vercel-ல் உள்ள Environment Variables-ஐப் பெறுதல்
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
-# Supabase connection
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Supabase connection - எரர் வராமல் இருக்க செக் செய்கிறோம்
+if not SUPABASE_URL or not SUPABASE_KEY:
+    supabase = None
+else:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def parse_id(id_val):
     if id_val and str(id_val).isdigit():
@@ -32,8 +33,10 @@ def index():
 @app.route('/upload_pdf', methods=['POST'])
 def upload_pdf():
     try:
+        if not supabase: return jsonify({"error": "Database not connected"}), 500
         if 'file' not in request.files:
             return jsonify({"error": "No file provided"}), 400
+        
         file = request.files['file']
         doc_no = request.form.get('doc_no')
         doc_type = request.form.get('type') 
@@ -46,11 +49,13 @@ def upload_pdf():
         storage_path = f"{folder}/{file_name}"
         file_bytes = file.read()
 
-        res = supabase.storage.from_("quotation_pdfs").upload(
+        # Upload to Supabase Storage
+        supabase.storage.from_("quotation_pdfs").upload(
             path=storage_path, file=file_bytes, file_options={"content-type": "application/pdf", "upsert": "true"}
         )
         public_url = supabase.storage.from_("quotation_pdfs").get_public_url(storage_path)
 
+        # Update table with PDF URL
         if doc_type == 'quotation':
             supabase.table("quotations").update({"pdf_url": public_url}).eq("quotation_no", doc_no).execute()
         else:
@@ -64,6 +69,8 @@ def upload_pdf():
 @app.route('/api/customers', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def manage_customers():
     try:
+        if not supabase: return jsonify({"error": "Database not connected"}), 500
+        
         if request.method == 'GET':
             res = supabase.table('customers').select('*').order('id', desc=True).execute()
             return jsonify(res.data)
@@ -73,10 +80,12 @@ def manage_customers():
             if not data.get('name') or not data.get('phone') or not data.get('address'):
                 return jsonify({"error": "Name, Phone and Address are mandatory"}), 400
 
+            # Phone number cleaning logic
             phone = str(data.get('phone', ''))
             phone_digits = re.sub(r'\D', '', phone)
             data['phone'] = phone_digits
 
+            # Handling null values
             for key in ['gst_number', 'email', 'address']:
                 if key in data and (data[key] == "" or data[key] == "null"):
                     data[key] = None
@@ -100,6 +109,8 @@ def manage_customers():
 @app.route('/api/products', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def manage_products():
     try:
+        if not supabase: return jsonify({"error": "Database not connected"}), 500
+
         if request.method == 'GET':
             res = supabase.table('products').select('*').order('id', desc=True).execute()
             return jsonify(res.data)
@@ -130,6 +141,8 @@ def manage_products():
 @app.route('/api/quotations', methods=['GET', 'POST', 'PUT'])
 def manage_quotations():
     try:
+        if not supabase: return jsonify({"error": "Database not connected"}), 500
+
         if request.method == 'GET':
             res = supabase.table('quotations').select('*, customers(*)').order('created_at', desc=True).execute()
             return jsonify(res.data)
@@ -140,6 +153,7 @@ def manage_quotations():
             month_year = current_date.strftime("%m-%y") 
             prefix = f"SSV-{month_year}-Q"
 
+            # Auto-increment logic for quotation number
             existing = supabase.table('quotations').select('quotation_no').ilike('quotation_no', f"{prefix}%").execute()
             existing_nos = [row['quotation_no'] for row in existing.data] if existing.data else []
             
@@ -167,6 +181,8 @@ def manage_quotations():
 @app.route('/api/invoices', methods=['GET', 'POST'])
 def manage_invoices():
     try:
+        if not supabase: return jsonify({"error": "Database not connected"}), 500
+
         if request.method == 'GET':
             res = supabase.table('invoices').select('*, customers(*)').order('created_at', desc=True).execute()
             return jsonify(res.data)
@@ -175,11 +191,14 @@ def manage_invoices():
             data = request.json
             quote_no = data.get('quotation_no')
             
+            # Status Update
             supabase.table('quotations').update({"status": "Closed"}).eq('quotation_no', quote_no).execute()
 
+            # Generate Invoice No from Quotation No
             inv_no = quote_no.replace('-Q', '-INV')
             data['invoice_no'] = inv_no
             
+            # Duplicate check
             check = supabase.table('invoices').select('id').eq('invoice_no', inv_no).execute()
             if check.data:
                  return jsonify({"error": "Invoice already generated for this quotation"}), 400
@@ -190,6 +209,5 @@ def manage_invoices():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Vercel context check
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True)
