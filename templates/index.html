@@ -2,481 +2,1022 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SSV Food Technology - ERP</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #f4f6f9; }
-        .sidebar { height: 100vh; background: #2c3e50; color: white; padding-top: 20px; position: fixed; width: 250px;}
-        .sidebar a { color: #adb5bd; text-decoration: none; display: block; padding: 10px 20px; margin-bottom: 5px; cursor: pointer;}
-        .sidebar a:hover, .sidebar a.active { background: #34495e; color: white; border-left: 4px solid #3498db; }
-        .main-content { margin-left: 250px; padding: 30px; }
-        .app-section { display: none; }
-        .app-section.active { display: block; }
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- PDF Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-        /* PDF Preview Styling */
-        .pdf-preview { background: white; padding: 20px 40px; box-shadow: 0 0 15px rgba(0,0,0,0.2); min-height: 800px; border: 1px solid #ddd; font-family: Arial, sans-serif; font-size: 12px; color: #000; }
-        .pdf-header { text-align: center; margin-bottom: 20px; }
-        .pdf-table { width: 100%; margin-bottom: 10px; border: 1px solid #000; border-collapse: collapse; }
-        .pdf-table th, .pdf-table td { border: 1px solid #000; padding: 5px; }
-        .pdf-table th { background: #f0f0f0; text-align: center; font-weight: bold; }
-        .info-box { border: 1px solid #000; padding: 5px; margin-bottom: 10px; }
-        .terms-box { border: 1px solid #000; font-size: 10px; padding: 5px; }
-        .bank-box { border: 1px solid #000; padding: 5px; font-size: 11px; }
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
         
-        @media print {
-            .sidebar, .form-side { display: none !important; }
-            .main-content { margin-left: 0; padding: 0; }
-            .pdf-preview { box-shadow: none; border: none; width: 100%; min-height: auto; padding: 0;}
-            body { background: white; }
-        }
+        .sidebar { transition: width 0.3s ease-in-out; }
+        .sidebar-expanded { width: 16rem; } /* 256px */
+        .sidebar-collapsed { width: 5rem; } /* 80px */
+        
+        .nav-link { display: flex; align-items: center; padding: 12px; color: #94a3b8; transition: 0.3s; cursor: pointer; border-radius: 8px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; }
+        .nav-link:hover, .nav-link.active { background-color: #334155; color: white; }
+        .nav-text { transition: opacity 0.2s; margin-left: 1rem; }
+        
+        /* Hide Logo text and menu text when collapsed */
+        .sidebar-collapsed .logo-text { opacity: 0; display: none; }
+        .sidebar-collapsed .nav-text { opacity: 0; display: none; }
+        .sidebar-collapsed .nav-link { justify-content: center; }
+        .sidebar-collapsed .nav-link i { margin: 0; font-size: 1.25rem; }
+
+        .app-section { display: none; animation: fadeIn 0.4s; }
+        .app-section.active { display: block; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        .modal-bg { background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(2px); }
+
+        /* PDF New Styles to match Image */
+        .pdf-container { background: white; padding: 10mm; font-family: Arial, sans-serif; font-size: 10px; color: #000; width: 210mm; margin: 0 auto; box-sizing: border-box;}
+        .pdf-table { width: 100%; border-collapse: collapse; margin-bottom: 0px; }
+        .pdf-table th, .pdf-table td { border: 1px solid #000; padding: 5px; vertical-align: top; }
+        .pdf-table th { background: #fff; text-align: center; font-weight: bold; text-transform: uppercase; font-size: 9px;}
+        .html2pdf__page-break { page-break-before: always; height: 0; margin: 0; border: 0; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .font-bold { font-weight: bold; }
     </style>
 </head>
-<body>
+<body class="flex h-screen overflow-hidden text-slate-800">
 
-<div class="sidebar">
-    <h4 class="text-center mb-4">SSV Food Tech</h4>
-    <a class="nav-link active" onclick="switchTab('new-customer', this)">New Customer</a>
-    <a class="nav-link" onclick="switchTab('product-details', this)">Product Details</a>
-    <a class="nav-link" onclick="switchTab('new-quotation', this)">New Quotation</a>
-    <a class="nav-link" onclick="switchTab('customer-dash', this)">Customer Dashboard</a>
-    <a class="nav-link" onclick="switchTab('quotation-dash', this)">Quotation Dashboard</a>
-    <a class="nav-link" onclick="switchTab('invoice-dash', this)">Invoice Dashboard</a>
-</div>
-
-<div class="main-content">
-    
-    <!-- 1. NEW CUSTOMER -->
-    <div id="new-customer" class="app-section active">
-        <h3>New Customer</h3>
-        <div class="card p-4 mt-3" style="max-width: 600px;">
-            <input type="hidden" id="cust-id">
-            <input type="text" id="cust-name" class="form-control mb-3" placeholder="Customer Name">
-            <textarea id="cust-address" class="form-control mb-3" placeholder="Address"></textarea>
-            <input type="email" id="cust-email" class="form-control mb-3" placeholder="Email">
-            <input type="text" id="cust-phone" class="form-control mb-3" placeholder="Phone Number">
-            <button class="btn btn-primary" onclick="saveCustomer()">Save Customer</button>
+    <!-- Sidebar (Navigation & 3-Line Menu Here) -->
+    <aside id="sidebar" class="sidebar sidebar-expanded bg-slate-900 text-white shadow-xl flex flex-col z-50">
+        
+        <!-- Hamburger Menu & Company Name in Navigation Area -->
+        <div class="flex items-center p-4 h-16 border-b border-slate-700 whitespace-nowrap overflow-hidden">
+            <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white focus:outline-none transition min-w-[32px] flex justify-center">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+            <div class="logo-text flex items-center text-indigo-400 font-bold text-xl ml-3">
+                <i class="fas fa-utensils mr-2"></i> 
+                <span>SSV Food Tech</span>
+            </div>
         </div>
-    </div>
 
-    <!-- 2. PRODUCT DETAILS -->
-    <div id="product-details" class="app-section">
-        <h3>Product Details</h3>
-        <div class="card p-4 mt-3 mb-4" style="max-width: 600px;">
-            <input type="text" id="prod-name" class="form-control mb-3" placeholder="Product Name">
-            <input type="number" id="prod-rate" class="form-control mb-3" placeholder="Base Rate (₹)">
-            <button class="btn btn-primary" onclick="saveProduct()">Save Product</button>
-        </div>
-        <h4>All Products</h4>
-        <table class="table table-striped mt-3 bg-white">
-            <thead><tr><th>ID</th><th>Name</th><th>Rate</th></tr></thead>
-            <tbody id="product-table-body"></tbody>
-        </table>
-    </div>
+        <nav class="flex-1 p-3 space-y-2 overflow-y-auto mt-2">
+            <a class="nav-link active" onclick="switchTab('customer-section', this)">
+                <i class="fas fa-users w-6 text-center"></i> <span class="nav-text">Customer Dashboard</span>
+            </a>
+            <a class="nav-link" onclick="switchTab('product-section', this)">
+                <i class="fas fa-box w-6 text-center"></i> <span class="nav-text">Product Dashboard</span>
+            </a>
+            <a class="nav-link" onclick="switchTab('quotation-dash', this)">
+                <i class="fas fa-list-check w-6 text-center"></i> <span class="nav-text">Quotation Dashboard</span>
+            </a>
+            <a class="nav-link" onclick="switchTab('invoice-dash', this)">
+                <i class="fas fa-file-invoice-dollar w-6 text-center"></i> <span class="nav-text">Invoice Dashboard</span>
+            </a>
+            <a id="nav-builder" class="nav-link hidden" onclick="switchTab('new-quotation', this)">
+                <i class="fas fa-hammer w-6 text-center"></i> <span class="nav-text">Builder</span>
+            </a>
+        </nav>
+    </aside>
 
-    <!-- 3. NEW QUOTATION -->
-    <div id="new-quotation" class="app-section">
-        <div class="row">
-            <div class="col-lg-4 form-side h-100 overflow-auto">
-                <h4>Quotation Builder</h4>
-                <div class="card p-3 mb-3">
-                    <label>Select Customer</label>
-                    <select id="q-customer" class="form-select mb-2" onchange="updateLivePreview()"></select>
-                    
-                    <label>Select Product</label>
-                    <select id="q-product" class="form-select mb-3" onchange="fetchProductRate(); updateLivePreview()"></select>
-                    
-                    <div class="row">
-                        <div class="col-6 mb-2"><label>Qty</label><input type="number" id="q-qty" class="form-control" value="1" oninput="calculateTotal()"></div>
-                        <div class="col-6 mb-2"><label>Rate (₹)</label><input type="number" id="q-rate" class="form-control" oninput="calculateTotal()"></div>
-                        <div class="col-4 mb-2"><label>GST %</label><input type="number" id="q-gst" class="form-control" value="0" oninput="calculateTotal()"></div>
-                        <div class="col-4 mb-2"><label>CGST %</label><input type="number" id="q-cgst" class="form-control" value="9" oninput="calculateTotal()"></div>
-                        <div class="col-4 mb-2"><label>SGST %</label><input type="number" id="q-sgst" class="form-control" value="9" oninput="calculateTotal()"></div>
-                        <div class="col-12 mb-2"><label>Discount (₹)</label><input type="number" id="q-discount" class="form-control" value="0" oninput="calculateTotal()"></div>
-                        <div class="col-6 mb-3"><label>Quotation Date</label><input type="date" id="q-date" class="form-control" onchange="updateLivePreview()"></div>
-                        <div class="col-6 mb-3"><label>Expiry Date</label><input type="date" id="q-expiry" class="form-control" onchange="updateLivePreview()"></div>
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col h-screen overflow-hidden w-full bg-slate-50">
+        
+        <!-- Topbar: Only Page Title and System Status -->
+        <header class="bg-white shadow-sm flex items-center justify-between p-4 z-40 h-16 border-b border-gray-200">
+            <h1 id="page-title" class="text-xl font-bold text-slate-800">Customer Dashboard</h1>
+            
+            <div class="flex items-center bg-green-50 border border-green-200 px-4 py-1.5 rounded-full shadow-sm">
+                <div class="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse mr-2"></div>
+                <span class="text-sm font-semibold text-green-700">System Online</span>
+            </div>
+        </header>
+
+        <!-- Dynamic Content -->
+        <main class="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6">
+
+            <!-- 1. CUSTOMER DASHBOARD -->
+            <div id="customer-section" class="app-section active">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                    <div class="relative w-full md:w-1/3">
+                        <i class="fas fa-search absolute left-3 top-3.5 text-gray-400"></i>
+                        <input type="text" id="search-customer" onkeyup="filterCustomers()" placeholder="Search Customer..." class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-indigo-500 outline-none">
                     </div>
-                    <h5>Total: ₹<span id="q-total">0.00</span></h5>
-                    <div class="d-flex gap-2 mt-3">
-                        <button class="btn btn-success flex-grow-1" onclick="saveQuotation()">Save DB</button>
-                        <button class="btn btn-secondary flex-grow-1" onclick="window.print()">Print PDF</button>
+                    <button onclick="openAddCustomerModal()" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg shadow flex items-center justify-center transition">
+                        <i class="fas fa-plus mr-2"></i> Add Customer
+                    </button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
+                    <table class="w-full text-left whitespace-nowrap">
+                        <thead class="bg-slate-100 border-b text-slate-600 text-sm uppercase">
+                            <tr>
+                                <th class="px-6 py-4">Name</th>
+                                <th class="px-6 py-4">Phone</th>
+                                <th class="px-6 py-4">Email</th>
+                                <th class="px-6 py-4 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customer-table-body" class="divide-y text-sm text-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. PRODUCT DASHBOARD -->
+            <div id="product-section" class="app-section">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                    <div class="relative w-full md:w-1/3">
+                        <i class="fas fa-search absolute left-3 top-3.5 text-gray-400"></i>
+                        <input type="text" id="search-product" onkeyup="filterProducts()" placeholder="Search Product..." class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-emerald-500 outline-none">
+                    </div>
+                    <button onclick="openAddProductModal()" class="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg shadow flex items-center justify-center transition">
+                        <i class="fas fa-plus mr-2"></i> Add Product
+                    </button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
+                    <table class="w-full text-left whitespace-nowrap">
+                        <thead class="bg-slate-100 border-b text-slate-600 text-sm uppercase">
+                            <tr>
+                                <th class="px-6 py-4">Category</th>
+                                <th class="px-6 py-4">Sub Category</th>
+                                <th class="px-6 py-4">Rate (₹)</th>
+                                <th class="px-6 py-4 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="product-table-body" class="divide-y text-sm text-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3. QUOTATION DASHBOARD -->
+            <div id="quotation-dash" class="app-section">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                    <h3 class="font-bold text-lg text-slate-700">Recent Quotations</h3>
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <!-- CUSTOMER SEARCH BAR -->
+                        <div class="relative flex-1 md:w-64">
+                            <i class="fas fa-search absolute left-3 top-3.5 text-gray-400"></i>
+                            <input type="text" id="search-q-customer" onkeyup="filterQuotations()" placeholder="Search Customer..." class="w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+                        <!-- STATUS DROPDOWN -->
+                        <select id="filter-q-status" onchange="filterQuotations()" class="border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white">
+                            <option value="">All Status</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Draft">Draft</option>
+                            <option value="Closed">Closed</option>
+                        </select>
+                        <button onclick="createNewQuote()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow transition whitespace-nowrap text-sm">
+                            <i class="fas fa-plus mr-1"></i> New Quotation
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
+                    <table class="w-full text-left whitespace-nowrap">
+                        <thead class="bg-slate-100 border-b text-slate-600 text-sm uppercase">
+                            <tr>
+                                <th class="px-6 py-4">Quote No</th>
+                                <th class="px-6 py-4">Date</th>
+                                <th class="px-6 py-4">Customer</th>
+                                <th class="px-6 py-4">Amount (₹)</th>
+                                <th class="px-6 py-4 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="quotation-table-body" class="divide-y text-sm text-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 4. INVOICE DASHBOARD -->
+            <div id="invoice-dash" class="app-section">
+                <div class="mb-4">
+                    <h3 class="font-bold text-lg text-slate-700">Generated Invoices</h3>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border overflow-x-auto">
+                    <table class="w-full text-left whitespace-nowrap">
+                        <thead class="bg-slate-100 border-b text-slate-600 text-sm uppercase">
+                            <tr>
+                                <th class="px-6 py-4">Invoice No</th>
+                                <th class="px-6 py-4">Ref Quote</th>
+                                <th class="px-6 py-4">Date</th>
+                                <th class="px-6 py-4">Customer</th>
+                                <th class="px-6 py-4">Amount (₹)</th>
+                                <th class="px-6 py-4 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoice-table-body" class="divide-y text-sm text-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 5. QUOTATION BUILDER -->
+            <div id="new-quotation" class="app-section">
+                
+                <div class="mb-4">
+                    <button onclick="switchTab('quotation-dash')" class="text-slate-500 hover:text-indigo-600 font-semibold flex items-center transition">
+                        <i class="fas fa-arrow-left mr-2"></i> Back to Quotations
+                    </button>
+                </div>
+
+                <div class="flex flex-col xl:flex-row gap-6">
+                    <div class="w-full xl:w-5/12 space-y-4">
+                        <div class="bg-white p-5 rounded-xl shadow-sm border">
+                            <h4 class="font-bold text-lg mb-4 text-slate-800 border-b pb-2 flex justify-between">
+                                <span><i class="fas fa-pen-to-square mr-2 text-indigo-500"></i> Builder Controls</span>
+                                <span id="builder-quote-no" class="text-sm text-indigo-600 bg-indigo-50 px-2 py-1 rounded">Auto</span>
+                            </h4>
+                            
+                            <input type="hidden" id="q-id">
+
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div><label class="block text-xs font-bold text-slate-600 mb-1">Quote Date</label><input type="date" id="q-date" class="w-full border rounded px-3 py-1.5 text-sm bg-slate-50"></div>
+                                <div><label class="block text-xs font-bold text-slate-600 mb-1">Expiry Date</label><input type="date" id="q-expiry" class="w-full border rounded px-3 py-1.5 text-sm bg-slate-50"></div>
+                            </div>
+
+                            <label class="block text-xs font-bold text-slate-600 mb-1">Select Customer</label>
+                            <select id="q-customer" class="w-full border rounded-lg px-3 py-2 mb-4 outline-none focus:border-indigo-500 bg-slate-50"></select>
+                            
+                            <div class="bg-slate-100 p-3 rounded-lg mb-4 border border-slate-200">
+                                <h5 class="text-xs font-bold text-slate-500 uppercase mb-2">Add Item to List</h5>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Category</label>
+                                <select id="q-category" class="w-full border rounded px-3 py-1.5 mb-2 outline-none focus:border-indigo-500 bg-white" onchange="populateSubCategories()"></select>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Sub Category</label>
+                                <select id="q-subcategory" class="w-full border rounded px-3 py-1.5 mb-3 outline-none focus:border-indigo-500 bg-white" onchange="setProductRate()"></select>
+                                
+                                <div class="flex gap-2 mb-3">
+                                    <div class="w-1/3"><label class="block text-xs font-bold text-slate-600">Qty</label><input type="number" id="q-qty" class="w-full border rounded px-2 py-1" value="1"></div>
+                                    <div class="w-2/3"><label class="block text-xs font-bold text-slate-600">Rate (₹)</label><input type="number" id="q-rate" class="w-full border rounded px-2 py-1"></div>
+                                </div>
+                                <button onclick="addItemToList()" class="w-full bg-slate-800 hover:bg-slate-900 text-white py-2 rounded shadow transition text-sm font-bold"><i class="fas fa-plus-circle mr-1"></i> Add Item</button>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-3 mb-4">
+                                <div><label class="block text-xs font-bold text-slate-600">CGST %</label><input type="number" id="q-cgst" class="w-full border rounded px-2 py-1" value="9" oninput="calculateGrandTotal()"></div>
+                                <div><label class="block text-xs font-bold text-slate-600">SGST %</label><input type="number" id="q-sgst" class="w-full border rounded px-2 py-1" value="9" oninput="calculateGrandTotal()"></div>
+                                <div><label class="block text-xs font-bold text-slate-600">Discount (₹)</label><input type="number" id="q-discount" class="w-full border rounded px-2 py-1" value="0" oninput="calculateGrandTotal()"></div>
+                            </div>
+
+                            <div class="flex gap-2 mt-4">
+                                <button class="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded shadow transition font-bold" onclick="saveQuotation('Draft')"><i class="fas fa-file-lines mr-1"></i> Save Draft</button>
+                                <button class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded shadow transition font-bold" onclick="saveQuotation('Pending')"><i class="fas fa-check-double mr-1"></i> Save & Generate PDF</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="w-full xl:w-7/12">
+                        <div class="bg-white p-5 rounded-xl shadow-sm border h-full flex flex-col">
+                            <h4 class="font-bold text-lg mb-4 text-slate-800 border-b pb-2"><i class="fas fa-list mr-2 text-indigo-500"></i> Added Items</h4>
+                            <div class="flex-1 overflow-y-auto mb-4 border rounded bg-slate-50 min-h-[250px]">
+                                <table class="w-full text-left text-sm whitespace-nowrap">
+                                    <thead class="bg-slate-200 text-slate-700 sticky top-0">
+                                        <tr>
+                                            <th class="p-2 w-10 text-center">#</th>
+                                            <th class="p-2">Description</th>
+                                            <th class="p-2 w-16 text-center">Qty</th>
+                                            <th class="p-2 text-right">Rate</th>
+                                            <th class="p-2 text-right">Amount</th>
+                                            <th class="p-2 w-10 text-center">Del</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="added-items-list" class="divide-y bg-white"></tbody>
+                                </table>
+                            </div>
+                            <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100 flex flex-col items-end">
+                                <div class="text-sm text-slate-600 mb-1 w-48 flex justify-between"><span>Subtotal:</span> <span id="lbl-subtotal" class="font-bold">₹0.00</span></div>
+                                <div class="text-sm text-slate-600 mb-1 w-48 flex justify-between"><span>Tax Total:</span> <span id="lbl-tax" class="font-bold">₹0.00</span></div>
+                                <div class="text-sm text-red-500 mb-2 w-48 flex justify-between"><span>Discount:</span> <span id="lbl-discount" class="font-bold">-₹0.00</span></div>
+                                <div class="text-xl text-indigo-800 font-bold border-t border-indigo-200 pt-2 w-48 flex justify-between">
+                                    <span>Total:</span> <span id="lbl-grandtotal">₹0.00</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- PDF PREVIEW -->
-            <div class="col-lg-8">
-                <div class="pdf-preview">
-                    <div class="pdf-header border-bottom border-dark pb-2">
-                        <h4 class="mb-1 fw-bold">SSV Food Technology</h4>
-                        <p class="mb-0" style="font-size: 10px;">1/145A, Sarogini Nagar, Kalaikoli Nagar, Krishnapuram, Tirunelveli-627011 | GSTIN: 33SGXP55865Q1ZJ</p>
+        </main>
+    </div>
+
+    <!-- Hidden Container for PDF Generation -->
+    <div id="hidden-pdf-wrapper" style="display: none;"><div id="pdf-printable-area"></div></div>
+
+    <!-- ================= MODALS ================= -->
+    
+    <!-- Customer Modal -->
+    <div id="customer-modal" class="fixed inset-0 modal-bg z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 relative">
+            <button onclick="closeModal('customer-modal')" class="absolute top-4 right-4 text-gray-400 hover:text-red-500"><i class="fas fa-times text-xl"></i></button>
+            <h3 id="cust-modal-title" class="text-xl font-bold text-gray-800 mb-5 border-b pb-2">Add Customer</h3>
+            <div class="space-y-4">
+                <input type="hidden" id="cust-id">
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Name *</label><input type="text" id="cust-name" class="w-full border rounded-lg px-3 py-2 outline-none focus:border-indigo-500 bg-gray-50"></div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Phone *</label><input type="text" id="cust-phone" maxlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '');" class="w-full border rounded-lg px-3 py-2 outline-none focus:border-indigo-500 bg-gray-50"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Email ID</label><input type="email" id="cust-email" class="w-full border rounded-lg px-3 py-2 outline-none focus:border-indigo-500 bg-gray-50 placeholder-gray-400" placeholder="mail@gmail.com"></div>
+                </div>
+
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">GST Number</label><input type="text" id="cust-gst" class="w-full border rounded-lg px-3 py-2 outline-none focus:border-indigo-500 bg-gray-50 uppercase"></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Address *</label><textarea id="cust-address" rows="2" class="w-full border rounded-lg px-3 py-2 outline-none focus:border-indigo-500 bg-gray-50"></textarea></div>
+                <button onclick="saveCustomer()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg shadow mt-2">Save Customer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Modal -->
+    <div id="product-modal" class="fixed inset-0 modal-bg z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
+            <button onclick="closeModal('product-modal')" class="absolute top-4 right-4 text-gray-400 hover:text-red-500"><i class="fas fa-times text-xl"></i></button>
+            <h3 id="prod-modal-title" class="text-xl font-bold text-gray-800 mb-5 border-b pb-2">Add Product</h3>
+            <div class="space-y-4">
+                <input type="hidden" id="prod-id">
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Category *</label><input type="text" id="prod-category" class="w-full border rounded-lg px-3 py-2 outline-none focus:border-emerald-500 bg-gray-50"></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Sub Category *</label><input type="text" id="prod-subcategory" class="w-full border rounded-lg px-3 py-2 outline-none focus:border-emerald-500 bg-gray-50"></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Rate (₹) *</label><input type="number" id="prod-rate" class="w-full border rounded-lg px-3 py-2 outline-none focus:border-emerald-500 bg-gray-50"></div>
+                <button onclick="saveProduct()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg shadow">Save Product</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF Preview Modal -->
+    <div id="pdf-preview-modal" class="fixed inset-0 modal-bg z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col relative">
+            <div class="p-4 border-b flex justify-between items-center bg-slate-50 rounded-t-xl">
+                <h3 class="text-xl font-bold text-gray-800"><i class="fas fa-file-pdf text-red-500 mr-2"></i> Document Preview</h3>
+                <button onclick="closeModal('pdf-preview-modal')" class="text-gray-500 hover:text-red-500 text-2xl leading-none">&times;</button>
+            </div>
+            
+            <div class="flex-1 p-2 bg-gray-200">
+                <iframe id="pdf-iframe" class="w-full h-full border-0 rounded shadow-inner" src=""></iframe>
+            </div>
+
+            <div class="p-4 border-t bg-slate-50 rounded-b-xl flex justify-end gap-4">
+                <button onclick="closeModal('pdf-preview-modal')" class="px-5 py-2 text-gray-600 bg-gray-200 rounded-lg hover:bg-gray-300 font-semibold transition">Close</button>
+                <a id="btn-actual-download" class="px-5 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 font-bold flex items-center transition cursor-pointer">
+                    <i class="fas fa-download mr-2"></i> Download PDF
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allCustomers = [], allProducts = [], allQuotations = [], allInvoices = [];
+        let groupedProducts = {}; 
+        let currentQuoteItems = []; 
+
+        // --- Toasts Notifications ---
+        const Toast = Swal.mixin({
+            toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, timerProgressBar: true
+        });
+        function showToast(title, icon = 'success') { Toast.fire({ icon, title }); }
+
+        // --- Utilities ---
+        const EmptyStateHTML = `<tr><td colspan="6" class="text-center py-16"><div class="flex flex-col items-center text-slate-400"><i class="fas fa-folder-open text-5xl mb-3 text-slate-300"></i><p class="text-lg">No records found.</p></div></td></tr>`;
+
+        function numberToWords(num) {
+            let a =['','One ','Two ','Three ','Four ', 'Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
+            let b =['', '', 'Twenty','Thirty','Forty','Fifty', 'Sixty','Seventy','Eighty','Ninety'];
+            if ((num = num.toString()).length > 9) return 'overflow';
+            let n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+            if (!n) return; let str = '';
+            str += (n[1] != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'Crore ' : '';
+            str += (n[2] != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'Lakh ' : '';
+            str += (n[3] != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'Thousand ' : '';
+            str += (n[4] != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'Hundred ' : '';
+            str += (n[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
+            return str.trim() === '' ? 'Zero Only' : str.trim() + ' Only';
+        }
+
+        function formatDate(dateString) {
+            if(!dateString) return "-";
+            const[year, month, day] = dateString.split('-');
+            return `${day}/${month}/${year}`;
+        }
+
+        function getTodayAndExpiry() {
+            let today = new Date();
+            let exp = new Date(); exp.setDate(today.getDate() + 15);
+            return {
+                today: today.toISOString().split('T')[0],
+                expiry: exp.toISOString().split('T')[0]
+            }
+        }
+
+        // --- Navigation ---
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            if(sidebar.classList.contains('sidebar-collapsed')) {
+                sidebar.classList.remove('sidebar-collapsed');
+                sidebar.classList.add('sidebar-expanded');
+            } else {
+                sidebar.classList.remove('sidebar-expanded');
+                sidebar.classList.add('sidebar-collapsed');
+            }
+        }
+
+        const pageTitles = {
+            'customer-section': 'Customer Dashboard',
+            'product-section': 'Product Dashboard',
+            'quotation-dash': 'Quotation Dashboard',
+            'invoice-dash': 'Invoice Dashboard',
+            'new-quotation': 'Quotation Builder'
+        };
+
+        function switchTab(sectionId, element) {
+            document.querySelectorAll('.app-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(sectionId).classList.add('active');
+            if(element) element.classList.add('active');
+            else if(sectionId === 'new-quotation') document.getElementById('nav-builder').classList.add('active');
+
+            document.getElementById('page-title').innerText = pageTitles[sectionId];
+            
+            if(sectionId === 'customer-section') fetchCustomers();
+            if(sectionId === 'product-section') fetchProducts();
+            if(sectionId === 'quotation-dash') fetchQuotations();
+            if(sectionId === 'invoice-dash') fetchInvoices();
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { 
+            document.getElementById(id).classList.add('hidden'); 
+            if(id === 'pdf-preview-modal') document.getElementById('pdf-iframe').src = "";
+        }
+
+        // --- Customers ---
+        function openAddCustomerModal() {
+            document.getElementById('cust-id').value = '';
+            document.getElementById('cust-name').value = '';
+            document.getElementById('cust-phone').value = '';
+            document.getElementById('cust-email').value = '';
+            document.getElementById('cust-gst').value = '';
+            document.getElementById('cust-address').value = '';
+            document.getElementById('cust-modal-title').innerText = 'Add Customer';
+            openModal('customer-modal');
+        }
+
+        async function fetchCustomers() {
+            try {
+                const res = await fetch('/api/customers');
+                allCustomers = await res.json();
+                renderCustomers(allCustomers);
+            } catch (e) {}
+        }
+
+        function renderCustomers(data) {
+            const tbody = document.getElementById('customer-table-body'); tbody.innerHTML = '';
+            if(!data.length) return tbody.innerHTML = EmptyStateHTML;
+            
+            data.forEach(c => {
+                const safeObj = JSON.stringify(c).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b border-slate-100">
+                        <td class="px-6 py-4 font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer transition" onclick="quoteForCustomer('${c.id}')" title="Click to create Quote">${c.name}</td>
+                        <td class="px-6 py-4 text-slate-600">${c.phone}</td>
+                        <td class="px-6 py-4 text-slate-500">${c.email || '-'}</td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="editCustomer(${safeObj})" class="text-blue-500 hover:bg-blue-100 p-2 rounded mr-2"><i class="fas fa-edit"></i></button>
+                            <button onclick="deleteCustomer('${c.id}')" class="text-red-500 hover:bg-red-100 p-2 rounded"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        function filterCustomers() { renderCustomers(allCustomers.filter(c => c.name.toLowerCase().includes(document.getElementById('search-customer').value.toLowerCase()))); }
+        
+        async function quoteForCustomer(custId) {
+            await createNewQuote();
+            document.getElementById('q-customer').value = custId;
+        }
+
+        async function saveCustomer() { 
+            const d = { 
+                id: document.getElementById('cust-id').value, 
+                name: document.getElementById('cust-name').value, 
+                phone: document.getElementById('cust-phone').value, 
+                email: document.getElementById('cust-email').value, 
+                gst_number: document.getElementById('cust-gst').value, 
+                address: document.getElementById('cust-address').value 
+            };
+            
+            if(!d.name || !d.phone || !d.address) {
+                return Swal.fire('Error', 'Name, Phone and Address are mandatory fields.', 'error');
+            }
+
+            const m = d.id ? 'PUT' : 'POST'; if(!d.id) delete d.id;
+            await fetch('/api/customers', { method: m, headers:{'Content-Type':'application/json'}, body: JSON.stringify(d) });
+            closeModal('customer-modal'); 
+            fetchCustomers();
+            showToast(m === 'POST' ? 'Customer added successfully' : 'Customer updated successfully');
+        }
+
+        function editCustomer(c) { 
+            document.getElementById('cust-id').value=c.id; 
+            document.getElementById('cust-name').value=c.name; 
+            document.getElementById('cust-phone').value=c.phone; 
+            document.getElementById('cust-email').value=c.email || ''; 
+            document.getElementById('cust-gst').value=c.gst_number || ''; 
+            document.getElementById('cust-address').value=c.address || ''; 
+            document.getElementById('cust-modal-title').innerText = 'Edit Customer';
+            openModal('customer-modal'); 
+        }
+
+        function deleteCustomer(id) { 
+            Swal.fire({ title: 'Delete Customer?', text: "This action cannot be undone!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'Yes, delete it!' })
+            .then(async (result) => {
+                if (result.isConfirmed) {
+                    await fetch(`/api/customers?id=${id}`, {method:'DELETE'}); 
+                    fetchCustomers();
+                    showToast('Customer deleted', 'success');
+                }
+            });
+        }
+
+        // --- Products ---
+        function openAddProductModal() {
+            document.getElementById('prod-id').value = '';
+            document.getElementById('prod-category').value = '';
+            document.getElementById('prod-subcategory').value = '';
+            document.getElementById('prod-rate').value = '';
+            document.getElementById('prod-modal-title').innerText = 'Add Product';
+            openModal('product-modal');
+        }
+
+        async function fetchProducts() {
+            try {
+                const res = await fetch('/api/products');
+                allProducts = await res.json();
+                renderProducts(allProducts);
+            } catch (e) {}
+        }
+
+        function renderProducts(data) {
+            const tbody = document.getElementById('product-table-body'); tbody.innerHTML = '';
+            if(!data.length) return tbody.innerHTML = EmptyStateHTML;
+            data.forEach(p => {
+                const safeObj = JSON.stringify(p).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b border-slate-100">
+                        <td class="px-6 py-4 font-bold text-slate-700">${p.category}</td><td class="px-6 py-4 text-slate-600">${p.sub_category}</td><td class="px-6 py-4 text-emerald-600 font-bold">₹${p.rate}</td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="editProduct(${safeObj})" class="text-blue-500 hover:bg-blue-100 p-2 rounded mr-2"><i class="fas fa-edit"></i></button>
+                            <button onclick="deleteProduct('${p.id}')" class="text-red-500 hover:bg-red-100 p-2 rounded"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+            });
+        }
+        function filterProducts() { renderProducts(allProducts.filter(p => (p.category||'').toLowerCase().includes(document.getElementById('search-product').value.toLowerCase()))); }
+        
+        async function saveProduct() { 
+            const d = { id: document.getElementById('prod-id').value, category: document.getElementById('prod-category').value, sub_category: document.getElementById('prod-subcategory').value, rate: document.getElementById('prod-rate').value };
+            
+            if(!d.category || !d.sub_category || !d.rate) {
+                return Swal.fire('Error', 'Category, Sub Category and Rate are mandatory fields.', 'error');
+            }
+
+            const m = d.id ? 'PUT' : 'POST'; if(!d.id) delete d.id;
+            await fetch('/api/products', { method: m, headers:{'Content-Type':'application/json'}, body: JSON.stringify(d) });
+            closeModal('product-modal'); fetchProducts();
+            showToast(m === 'POST' ? 'Product added successfully' : 'Product updated successfully');
+        }
+        
+        function editProduct(p) { document.getElementById('prod-id').value=p.id; document.getElementById('prod-category').value=p.category; document.getElementById('prod-subcategory').value=p.sub_category; document.getElementById('prod-rate').value=p.rate; document.getElementById('prod-modal-title').innerText = 'Edit Product'; openModal('product-modal'); }
+        
+        function deleteProduct(id) { 
+            Swal.fire({ title: 'Delete Product?', text: "This item will be removed permanently.", icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'Yes, delete!' })
+            .then(async (result) => {
+                if (result.isConfirmed) {
+                    await fetch(`/api/products?id=${id}`, {method:'DELETE'}); 
+                    fetchProducts();
+                    showToast('Product deleted successfully');
+                }
+            });
+        }
+
+        // --- Quotations (Dashboard) ---
+        async function fetchQuotations() {
+            try {
+                const res = await fetch('/api/quotations');
+                allQuotations = await res.json();
+                renderQuotations(allQuotations);
+            } catch (e) {}
+        }
+
+        // --- UPDATED RENDER & FILTER QUOTATIONS LOGIC ---
+        function renderQuotations(data) {
+            const tbody = document.getElementById('quotation-table-body'); tbody.innerHTML = '';
+            if(!data.length) return tbody.innerHTML = EmptyStateHTML;
+            data.forEach(q => {
+                let badge = q.status === 'Draft' ? 'bg-slate-200 text-slate-700' : (q.status === 'Closed' ? 'bg-gray-200 text-gray-500' : 'bg-yellow-100 text-yellow-700');
+                const safeObj = JSON.stringify(q).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-100 border-b border-slate-100 cursor-pointer transition" onclick="handleQuoteRowClick('${q.status}', ${safeObj})">
+                        <td class="px-6 py-4 font-bold text-indigo-600">${q.quotation_no}</td>
+                        <td class="px-6 py-4">${formatDate(q.quotation_date)}</td>
+                        <td class="px-6 py-4 font-semibold">${q.customers?.name || 'Unknown'}</td>
+                        <td class="px-6 py-4 font-bold text-slate-800">₹${q.total}</td>
+                        <td class="px-6 py-4 text-center">
+                            <span class="px-2 py-1 rounded text-xs font-bold ${badge}">${q.status}</span>
+                            <div class="text-[10px] text-blue-500 mt-1">${q.status === 'Draft' ? 'Click to edit' : (q.status === 'Pending' ? 'Click to convert to Invoice' : '')}</div>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        function filterQuotations() {
+            const searchTerm = document.getElementById('search-q-customer').value.toLowerCase();
+            const statusFilter = document.getElementById('filter-q-status').value;
+            const filtered = allQuotations.filter(q => {
+                const matchesCustomer = (q.customers?.name || '').toLowerCase().includes(searchTerm);
+                const matchesStatus = statusFilter === "" || q.status === statusFilter;
+                return matchesCustomer && matchesStatus;
+            });
+            renderQuotations(filtered);
+        }
+
+        function handleQuoteRowClick(status, q) {
+            if(status === 'Draft') editDraftQuote(q);
+            else if(status === 'Pending') convertToInvoice(q.quotation_no);
+        }
+
+        // --- Invoices (Dashboard) ---
+        async function fetchInvoices() {
+            try {
+                const res = await fetch('/api/invoices');
+                allInvoices = await res.json();
+                renderInvoices(allInvoices);
+            } catch (e) {}
+        }
+        function renderInvoices(data) {
+            const tbody = document.getElementById('invoice-table-body'); tbody.innerHTML = '';
+            if(!data.length) return tbody.innerHTML = EmptyStateHTML;
+            data.forEach(inv => {
+                const safeInv = JSON.stringify(inv).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b border-slate-100">
+                        <td class="px-6 py-4 font-bold text-emerald-600">${inv.invoice_no}</td>
+                        <td class="px-6 py-4 text-xs text-slate-500">${inv.quotation_no}</td>
+                        <td class="px-6 py-4">${formatDate(inv.invoice_date)}</td>
+                        <td class="px-6 py-4">${inv.customers?.name || 'Unknown'}</td>
+                        <td class="px-6 py-4 font-bold text-slate-800">₹${inv.total}</td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick='generateAndDownloadPDF("invoice", ${safeInv})' class="text-red-500 hover:text-red-700 font-bold text-xs bg-red-50 px-3 py-1.5 rounded"><i class="fas fa-file-pdf mr-1"></i> Download</button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        async function convertToInvoice(quoteNo) {
+            Swal.fire({ title: 'Create Invoice?', text: `Do you want to generate an invoice for ${quoteNo}?`, icon: 'question', showCancelButton: true, confirmButtonColor: '#10b981', confirmButtonText: 'Yes, Create Invoice!' })
+            .then(async (result) => {
+                if(result.isConfirmed) {
+                    const q = allQuotations.find(x => x.quotation_no === quoteNo);
+                    if(!q) return;
+                    
+                    const invData = {
+                        quotation_no: q.quotation_no,
+                        customer_id: q.customer_id,
+                        items: q.items,
+                        cgst: q.cgst, sgst: q.sgst, discount: q.discount, total: q.total,
+                        invoice_date: new Date().toISOString().split('T')[0]
+                    };
+
+                    const res = await fetch('/api/invoices', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(invData) });
+                    if(res.ok) {
+                        const newInv = (await res.json())[0];
+                        showToast('Invoice Created Successfully', 'success');
+                        switchTab('invoice-dash');
+                    } else {
+                        Swal.fire('Error', 'Failed to create invoice.', 'error');
+                    }
+                }
+            });
+        }
+
+        // --- Quotation Builder (Logic) ---
+        async function createNewQuote() {
+            switchTab('new-quotation');
+            document.getElementById('q-id').value = '';
+            document.getElementById('builder-quote-no').innerText = 'Auto-Generated';
+            
+            let dates = getTodayAndExpiry();
+            document.getElementById('q-date').value = dates.today;
+            document.getElementById('q-expiry').value = dates.expiry;
+            
+            currentQuoteItems = [];
+            document.getElementById('q-cgst').value = 9;
+            document.getElementById('q-sgst').value = 9;
+            document.getElementById('q-discount').value = 0;
+            
+            await loadDropdownsForBuilder();
+            renderAddedItems();
+        }
+
+        async function editDraftQuote(q) {
+            switchTab('new-quotation');
+            await loadDropdownsForBuilder();
+            
+            document.getElementById('q-id').value = q.id;
+            document.getElementById('builder-quote-no').innerText = q.quotation_no;
+            document.getElementById('q-date').value = q.quotation_date;
+            document.getElementById('q-expiry').value = q.expiry_date;
+            document.getElementById('q-customer').value = q.customer_id;
+            document.getElementById('q-cgst').value = q.cgst;
+            document.getElementById('q-sgst').value = q.sgst;
+            document.getElementById('q-discount').value = q.discount;
+            
+            currentQuoteItems = typeof q.items === 'string' ? JSON.parse(q.items) : (q.items || []);
+            renderAddedItems();
+        }
+
+        async function loadDropdownsForBuilder() {
+            if(!allCustomers.length) await fetchCustomers();
+            if(!allProducts.length) await fetchProducts();
+
+            const cSel = document.getElementById('q-customer');
+            cSel.innerHTML = '<option value="">-- Select Customer --</option>';
+            allCustomers.forEach(c => cSel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+
+            groupedProducts = {};
+            allProducts.forEach(p => {
+                if(!groupedProducts[p.category]) groupedProducts[p.category] = [];
+                groupedProducts[p.category].push(p);
+            });
+
+            const catSel = document.getElementById('q-category');
+            catSel.innerHTML = '<option value="">- Category -</option>';
+            Object.keys(groupedProducts).forEach(cat => catSel.innerHTML += `<option value="${cat}">${cat}</option>`);
+            
+            document.getElementById('q-subcategory').innerHTML = '<option value="">- Sub Category -</option>';
+        }
+
+        function populateSubCategories() {
+            const cat = document.getElementById('q-category').value;
+            const subSel = document.getElementById('q-subcategory');
+            subSel.innerHTML = '<option value="">- Sub Category -</option>';
+            if(cat && groupedProducts[cat]) {
+                groupedProducts[cat].forEach(p => subSel.innerHTML += `<option value="${p.id}" data-rate="${p.rate}">${p.sub_category}</option>`);
+            }
+        }
+
+        function setProductRate() {
+            const subSel = document.getElementById('q-subcategory');
+            if(subSel.selectedIndex > 0) document.getElementById('q-rate').value = subSel.options[subSel.selectedIndex].dataset.rate;
+        }
+
+        function addItemToList() {
+            const cat = document.getElementById('q-category').value;
+            const subSel = document.getElementById('q-subcategory');
+            const subText = subSel.selectedIndex > 0 ? subSel.options[subSel.selectedIndex].text : '';
+            const qty = parseFloat(document.getElementById('q-qty').value) || 1;
+            const rate = parseFloat(document.getElementById('q-rate').value) || 0;
+
+            if(!cat || !subText || rate <= 0) return Swal.fire('Error', 'Select product and enter valid rate.', 'error');
+
+            currentQuoteItems.push({ desc: `${cat} - ${subText}`, qty: qty, rate: rate, amount: qty * rate });
+            
+            document.getElementById('q-qty').value = 1; document.getElementById('q-rate').value = '';
+            document.getElementById('q-category').value = ''; populateSubCategories();
+            
+            showToast('Item Added', 'success');
+            renderAddedItems();
+        }
+
+        function removeItem(index) { 
+            currentQuoteItems.splice(index, 1); 
+            showToast('Item Removed', 'info');
+            renderAddedItems(); 
+        }
+
+        function renderAddedItems() {
+            const tbody = document.getElementById('added-items-list'); tbody.innerHTML = '';
+            if(!currentQuoteItems.length) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400">No items added.</td></tr>`;
+                calculateGrandTotal(); return;
+            }
+
+            currentQuoteItems.forEach((itm, idx) => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="p-2 text-center text-slate-500">${idx+1}</td>
+                        <td class="p-2 font-semibold text-slate-700">${itm.desc}</td>
+                        <td class="p-2 text-center">${itm.qty}</td>
+                        <td class="p-2 text-right">₹${itm.rate}</td>
+                        <td class="p-2 text-right font-bold text-slate-800">₹${itm.amount.toFixed(2)}</td>
+                        <td class="p-2 text-center"><button onclick="removeItem(${idx})" class="text-red-400 hover:text-red-600 bg-red-50 rounded-full w-6 h-6"><i class="fas fa-times"></i></button></td>
+                    </tr>`;
+            });
+            calculateGrandTotal();
+        }
+
+        function calculateGrandTotal() {
+            const subtotal = currentQuoteItems.reduce((sum, itm) => sum + itm.amount, 0);
+            const cgst = parseFloat(document.getElementById('q-cgst').value) || 0;
+            const sgst = parseFloat(document.getElementById('q-sgst').value) || 0;
+            const discount = parseFloat(document.getElementById('q-discount').value) || 0;
+
+            const taxAmount = subtotal * ((cgst + sgst) / 100);
+            const grandTotal = (subtotal + taxAmount) - discount;
+
+            document.getElementById('lbl-subtotal').innerText = `₹${subtotal.toFixed(2)}`;
+            document.getElementById('lbl-tax').innerText = `₹${taxAmount.toFixed(2)} (${cgst+sgst}%)`;
+            document.getElementById('lbl-discount').innerText = `-₹${discount.toFixed(2)}`;
+            document.getElementById('lbl-grandtotal').innerText = `₹${grandTotal > 0 ? grandTotal.toFixed(2) : '0.00'}`;
+            return grandTotal;
+        }
+
+        async function saveQuotation(statusParam) {
+            if(!document.getElementById('q-customer').value) return Swal.fire('Wait', 'Please select a customer.', 'warning');
+            if(currentQuoteItems.length === 0) return Swal.fire('Wait', 'Please add at least one item.', 'warning');
+
+            const total = calculateGrandTotal();
+            
+            const data = {
+                customer_id: document.getElementById('q-customer').value,
+                items: JSON.stringify(currentQuoteItems), 
+                cgst: document.getElementById('q-cgst').value,
+                sgst: document.getElementById('q-sgst').value,
+                discount: document.getElementById('q-discount').value,
+                total: total,
+                quotation_date: document.getElementById('q-date').value,
+                expiry_date: document.getElementById('q-expiry').value,
+                status: statusParam 
+            };
+
+            const qId = document.getElementById('q-id').value;
+            const method = qId ? 'PUT' : 'POST';
+            if(qId) data.id = qId;
+
+            Swal.fire({title: 'Saving...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+            
+            try {
+                const res = await fetch('/api/quotations', { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+                
+                // Clear Error Catching Logic
+                if(!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.error || "Unknown Database Error");
+                }
+                
+                const savedData = (await res.json())[0];
+                
+                if(statusParam === 'Draft') {
+                    Swal.fire('Success', 'Draft Saved Successfully!', 'success');
+                    switchTab('quotation-dash');
+                } else {
+                    const custObj = allCustomers.find(c => c.id == data.customer_id);
+                    savedData.customers = custObj; 
+                    
+                    Swal.fire({title: 'Generating PDF...', text: 'Please wait.', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+                    await generateAndDownloadPDF("quotation", savedData, true); 
+                    
+                    Swal.close();
+                    switchTab('quotation-dash');
+                }
+            } catch(e) { 
+                console.error("Save Failed:", e);
+                Swal.fire('Database Error!', e.message, 'error'); 
+            }
+        }
+
+        // --- UPDATED PDF GENERATION LOGIC ---
+        async function generateAndDownloadPDF(docType, dataObj, showPreviewPopup = false) {
+            const wrapper = document.getElementById('hidden-pdf-wrapper');
+            const printArea = document.getElementById('pdf-printable-area');
+            wrapper.style.display = 'block'; 
+            printArea.innerHTML = ''; 
+
+            const docNo = docType === 'invoice' ? dataObj.invoice_no : dataObj.quotation_no;
+            const docDate = formatDate(docType === 'invoice' ? dataObj.invoice_date : dataObj.quotation_date);
+            const expDate = formatDate(dataObj.expiry_date);
+            const custName = dataObj.customers?.name || '';
+            const custAddress = dataObj.customers?.address || '';
+            const items = typeof dataObj.items === 'string' ? JSON.parse(dataObj.items) : dataObj.items;
+            const cgst = parseFloat(dataObj.cgst || 0); 
+            const sgst = parseFloat(dataObj.sgst || 0);
+            const grandTotal = dataObj.total;
+
+            const buildPage = () => {
+                let itemsHtml = ''; 
+                items.forEach((itm, idx) => {
+                    itemsHtml += `<tr>
+                        <td class="text-center">${idx+1}</td>
+                        <td>${itm.desc}</td>
+                        <td class="text-center">${itm.qty}</td>
+                        <td class="text-right">${itm.rate.toFixed(2)}</td>
+                        <td class="text-center">${cgst + sgst}</td>
+                        <td class="text-right">${itm.amount.toFixed(2)}</td>
+                    </tr>`;
+                });
+
+                return `
+                <div class="pdf-container">
+                    <div class="text-center" style="margin-bottom: 5px;">
+                        <h2 style="margin:0; font-size:16px;">SSV Food Technology</h2>
+                        <div style="font-size:9px;">1/145A, Sarogini Nagar, Kalaikoil Nagar, Krishnapuram, Tirunelveli-627011 | GSTIN: 33SGXPS5865Q1ZJ</div>
                     </div>
-                    <div class="row mb-2">
-                        <div class="col-12">
-                            <table style="width: 100%; border: 1px solid #000; font-size: 11px;">
-                                <tr>
-                                    <!-- ADDED SPAN ID HERE TO UPDATE QUOTATION NO -->
-                                    <td style="border: 1px solid #000; padding: 5px; width: 40%;"><strong>Quotation No:</strong> <span id="prev-quotation-no">Auto-Generated</span></td>
-                                    <td style="border: 1px solid #000; padding: 5px; width: 30%;"><strong>Quotation Date:</strong> <span id="prev-date"></span></td>
-                                    <td style="border: 1px solid #000; padding: 5px; width: 30%;"><strong>Expiry Date:</strong> <span id="prev-expiry"></span></td>
-                                </tr>
-                                <tr>
-                                    <td colspan="2" style="border: 1px solid #000; padding: 5px; vertical-align: top;">
-                                        <strong>BILL TO</strong><br><span id="prev-customer-name">[Customer Name]</span><br><span id="prev-customer-address">[Address]</span>
-                                    </td>
-                                    <td style="border: 1px solid #000; padding: 5px; vertical-align: top;">
-                                        <strong>SHIP TO</strong><br><span id="prev-ship-name">[Customer Name]</span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div>
-                    </div>
-                    <table class="pdf-table mt-3">
-                        <thead><tr><th>S.NO</th><th>ITEMS</th><th>QTY</th><th>RATE</th><th>Tax %</th><th>AMOUNT</th></tr></thead>
+                    
+                    <table class="pdf-table" style="margin-bottom:-1px;">
+                        <tr>
+                            <td style="width:33%;"><strong>Quotation No:</strong> ${docNo}</td>
+                            <td style="width:33%;"><strong>Quotation Date:</strong> ${docDate}</td>
+                            <td style="width:34%;"><strong>Expiry Date:</strong> ${expDate}</td>
+                        </tr>
+                    </table>
+
+                    <table class="pdf-table" style="margin-bottom:-1px;">
+                        <tr>
+                            <td style="width:50%; min-height:60px;"><strong>BILL TO</strong><br>${custName}<br>${custAddress}</td>
+                            <td style="width:50%;"><strong>SHIP TO</strong><br>${custName}<br>${custAddress}</td>
+                        </tr>
+                    </table>
+
+                    <table class="pdf-table" style="margin-bottom:-1px;">
+                        <thead>
+                            <tr>
+                                <th style="width:5%;">S.NO</th>
+                                <th style="width:45%;">ITEMS</th>
+                                <th style="width:10%;">QTY</th>
+                                <th style="width:15%;">RATE</th>
+                                <th style="width:10%;">Tax %</th>
+                                <th style="width:15%;">AMOUNT</th>
+                            </tr>
+                        </thead>
                         <tbody>
-                            <tr><td class="text-center">1</td><td id="prev-product">[Product]</td><td class="text-center" id="prev-qty">1</td><td class="text-end" id="prev-rate">0.00</td><td class="text-center" id="prev-tax">18%</td><td class="text-end" id="prev-amount">0.00</td></tr>
-                            <tr><td colspan="5" class="text-end fw-bold">Grand Total</td><td class="text-end fw-bold" id="prev-grandtotal">0.00</td></tr>
+                            ${itemsHtml}
+                            <tr>
+                                <td colspan="5" class="text-right font-bold">Grand Total</td>
+                                <td class="text-right font-bold">${grandTotal.toFixed(2)}</td>
+                            </tr>
                         </tbody>
                     </table>
-                    <div class="info-box"><strong>Amount In Words: </strong><span id="prev-words">Zero Only</span></div>
-                    <div class="row g-2">
-                        <div class="col-8">
-                            <div class="bank-box h-100">
-                                <h6 class="fw-bold mb-1">Bank Details</h6>
-                                <p class="mb-0">Name: Sathya R | IFSC: IOBA0002711 | A/C: 271101000008129<br>Bank: Indian Overseas Bank, Tirunelveli</p>
-                            </div>
-                        </div>
-                        <div class="col-4"><div class="bank-box h-100 text-center d-flex align-items-center justify-content-center">UPI ID: 8807270873@ibl</div></div>
+
+                    <div style="border: 1px solid #000; padding:5px; margin-bottom:-1px; font-size:9px;">
+                        <strong>Total Amount In Words:</strong><br>${numberToWords(Math.round(grandTotal))}
                     </div>
-                    <div class="row mt-2 g-2">
-                        <div class="col-8">
-                            <div class="terms-box h-100">
-                                <strong style="text-decoration: underline;">Terms:</strong><br>50% Advance with PO | Delivery: 30 Working Days | Warranty: 6 Months on Motor.
-                            </div>
+
+                    <div style="display:flex; border: 1px solid #000; margin-bottom:-1px;">
+                        <div style="width:60%; border-right:1px solid #000; padding:5px; font-size:9px;">
+                            <strong>Bank Details</strong><br>
+                            Name: Sathya R<br>
+                            IFSC Code: IOBA0002711<br>
+                            A/C No: 271101000008129<br>
+                            Bank Name: Indian Overseas Bank, Krishnapuram, Tirunelveli
                         </div>
-                        <div class="col-4 text-center border p-2 d-flex flex-column justify-content-between" style="font-size: 11px; min-height: 80px;">
-                            <span>Authorized Signatory</span>
-                            <strong>SSV Food Tech</strong>
+                        <div style="width:40%; padding:5px; text-align:center;">
+                            <div style="font-size:9px; font-weight:bold;">Payment QR Code</div>
+                            <div style="font-size:7px;">UPI ID: 8807270873@ibl</div>
+                            <div style="height:45px; width:45px; border:1px dashed #ccc; margin: 3px auto; line-height:45px; font-size:8px; color:#ccc;">QR Area</div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- DASHBOARDS -->
-    <div id="customer-dash" class="app-section">
-        <h3>Customer Dashboard</h3>
-        <table class="table table-striped mt-3 bg-white">
-            <thead>
-                <tr><th>Name</th><th>Phone</th><th>Email</th><th>Actions</th></tr>
-            </thead>
-            <tbody id="customer-table-body"></tbody>
-        </table>
-    </div>
+                    <div style="display:flex; border: 1px solid #000; height: 130px;">
+                        <div style="width:60%; border-right:1px solid #000; padding:5px; font-size:8.5px; line-height: 1.2;">
+                            <strong>Terms and Condition</strong><br>
+                            1. Payment Terms: 50% advance along with purchase order and 50% before dispatch.<br>
+                            2. Delivery Period: 30 working days from the date of advance payment confirmation.<br>
+                            3. GST: GST will be charged extra as applicable (CGST + SGST / IGST).<br>
+                            4. Transportation: Transportation charges will be extra at actuals.<br>
+                            5. Warrenty: 6 months warranty on motor against manufacturing defects.<br>
+                            6. Cancellation: Advance payment is non-refundable once production is started.<br>
+                            7. Force Majeure: Delivery may be delayed due to circumstances beyond our control.<br>
+                            8. Jurisdiction: All disputes are subject to Chennai jurisdiction only.
+                        </div>
+                        <div style="width:40%; padding:5px; display:flex; flex-direction:column; justify-content:space-between; text-align:center;">
+                            <div class="font-bold" style="font-size:9px;">Authorized Signatory For SSV Food Technology</div>
+                            <div style="margin-bottom:10px;">
+                                <div style="font-weight:bold; font-size:10px;">Sathya R</div>
+                                <div style="font-size:9px;">SSV Food Technology</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            };
 
-    <div id="quotation-dash" class="app-section">
-        <h3>Active Quotations</h3>
-        <table class="table table-striped mt-3 bg-white">
-            <thead>
-                <tr><th>Quote No</th><th>Date</th><th>Customer</th><th>Product</th><th>Total</th><th>Action</th></tr>
-            </thead>
-            <tbody id="quotation-table-body"></tbody>
-        </table>
-    </div>
+            printArea.innerHTML = buildPage();
 
-    <div id="invoice-dash" class="app-section">
-        <h3>Generated Invoices</h3>
-        <table class="table table-striped mt-3 bg-white">
-            <thead>
-                <tr><th>Invoice No</th><th>Date</th><th>Customer</th><th>Product</th><th>Total</th></tr>
-            </thead>
-            <tbody id="invoice-table-body"></tbody>
-        </table>
-    </div>
-</div>
-
-<script>
-    // --- UTILITIES ---
-    function numberToWords(num) {
-        let a =['','One ','Two ','Three ','Four ', 'Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
-        let b =['', '', 'Twenty','Thirty','Forty','Fifty', 'Sixty','Seventy','Eighty','Ninety'];
-        if ((num = num.toString()).length > 9) return 'overflow';
-        let n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
-        if (!n) return; let str = '';
-        str += (n[1] != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'Crore ' : '';
-        str += (n[2] != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'Lakh ' : '';
-        str += (n[3] != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'Thousand ' : '';
-        str += (n[4] != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'Hundred ' : '';
-        str += (n[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
-        return str.trim() === '' ? 'Zero Only' : str.trim() + ' Only';
-    }
-
-    function formatDateForDisplay(dateString) {
-        if(!dateString) return "";
-        const[year, month, day] = dateString.split('-');
-        return `${day}/${month}/${year}`;
-    }
-
-    function switchTab(sectionId, element) {
-        document.querySelectorAll('.app-section').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.sidebar a').forEach(el => el.classList.remove('active'));
-        document.getElementById(sectionId).classList.add('active');
-        element.classList.add('active');
-        loadDataForSection(sectionId);
-    }
-
-    function loadDataForSection(sectionId) {
-        if(sectionId === 'product-details') fetchProducts();
-        if(sectionId === 'customer-dash') fetchCustomers();
-        if(sectionId === 'new-quotation') {
-            fetchDropdownData();
+            const opt = { margin: 0, filename: `${docNo}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
             
-            // Reset Auto-Generated text for a fresh quotation
-            document.getElementById('prev-quotation-no').innerText = 'Auto-Generated';
-            
-            // Auto-fill dates
-            let today = new Date();
-            let exp = new Date(); 
-            exp.setDate(today.getDate() + 15);
-            
-            // Set values to inputs
-            document.getElementById('q-date').value = today.toISOString().split('T')[0];
-            document.getElementById('q-expiry').value = exp.toISOString().split('T')[0];
-            
-            updateLivePreview();
-        }
-        if(sectionId === 'quotation-dash') fetchQuotations();
-        if(sectionId === 'invoice-dash') fetchInvoices();
-    }
-
-    // --- API CALLS ---
-    async function fetchCustomers() {
-        const res = await fetch('/api/customers');
-        const data = await res.json();
-        const tbody = document.getElementById('customer-table-body');
-        tbody.innerHTML = '';
-        data.forEach(c => {
-            tbody.innerHTML += `<tr><td>${c.name}</td><td>${c.phone}</td><td>${c.email}</td>
-            <td><button class="btn btn-sm btn-danger" onclick="deleteCustomer(${c.id})">Delete</button></td></tr>`;
-        });
-    }
-
-    async function saveCustomer() {
-        const id = document.getElementById('cust-id').value;
-        const data = {
-            name: document.getElementById('cust-name').value,
-            address: document.getElementById('cust-address').value,
-            email: document.getElementById('cust-email').value,
-            phone: document.getElementById('cust-phone').value
-        };
-        const method = id ? 'PUT' : 'POST';
-        if (id) data.id = id;
-
-        await fetch('/api/customers', { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-        alert('Customer Saved!');
-        document.getElementById('cust-name').value = '';
-        document.getElementById('cust-address').value = '';
-        document.getElementById('cust-email').value = '';
-        document.getElementById('cust-phone').value = '';
-    }
-
-    async function deleteCustomer(id) {
-        if(!confirm("Delete this customer?")) return;
-        await fetch(`/api/customers?id=${id}`, { method: 'DELETE' });
-        fetchCustomers();
-    }
-
-    async function fetchProducts() {
-        const res = await fetch('/api/products');
-        const data = await res.json();
-        const tbody = document.getElementById('product-table-body');
-        tbody.innerHTML = '';
-        data.forEach(p => {
-            tbody.innerHTML += `<tr><td>${p.id}</td><td>${p.name}</td><td>₹${p.rate}</td></tr>`;
-        });
-    }
-
-    async function saveProduct() {
-        const data = { name: document.getElementById('prod-name').value, rate: document.getElementById('prod-rate').value };
-        await fetch('/api/products', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-        alert('Product Saved!');
-        document.getElementById('prod-name').value = '';
-        document.getElementById('prod-rate').value = '';
-        fetchProducts();
-    }
-
-    // --- QUOTATION BUILDER ---
-    async function fetchDropdownData() {
-        const cRes = await fetch('/api/customers');
-        const pRes = await fetch('/api/products');
-        const customers = await cRes.json();
-        const products = await pRes.json();
-        
-        const cSelect = document.getElementById('q-customer');
-        const pSelect = document.getElementById('q-product');
-        
-        cSelect.innerHTML = '<option value="">Select Customer...</option>';
-        customers.forEach(c => cSelect.innerHTML += `<option value="${c.id}" data-address="${c.address}">${c.name}</option>`);
-        
-        pSelect.innerHTML = '<option value="">Select Product...</option>';
-        products.forEach(p => pSelect.innerHTML += `<option value="${p.id}" data-rate="${p.rate}">${p.name}</option>`);
-    }
-
-    function fetchProductRate() {
-        const pSelect = document.getElementById('q-product');
-        const opt = pSelect.options[pSelect.selectedIndex];
-        if(opt && opt.dataset.rate) {
-            document.getElementById('q-rate').value = opt.dataset.rate;
-            calculateTotal();
-        }
-    }
-
-    function calculateTotal() {
-        const qty = parseFloat(document.getElementById('q-qty').value) || 0;
-        const rate = parseFloat(document.getElementById('q-rate').value) || 0;
-        const gst = parseFloat(document.getElementById('q-gst').value) || 0;
-        const cgst = parseFloat(document.getElementById('q-cgst').value) || 0;
-        const sgst = parseFloat(document.getElementById('q-sgst').value) || 0;
-        const discount = parseFloat(document.getElementById('q-discount').value) || 0;
-
-        const subtotal = qty * rate;
-        const totalTaxesPercent = gst + cgst + sgst;
-        
-        const taxableAmount = subtotal - discount;
-        const taxAmount = taxableAmount * (totalTaxesPercent / 100);
-        const grandTotal = taxableAmount + taxAmount;
-
-        document.getElementById('q-total').innerText = grandTotal.toFixed(2);
-        
-        updateLivePreview(grandTotal, totalTaxesPercent);
-    }
-
-    function updateLivePreview(grandTotal = 0, totalTaxPercent = 0) {
-        const cSelect = document.getElementById('q-customer');
-        const pSelect = document.getElementById('q-product');
-        
-        const cOpt = cSelect.options[cSelect.selectedIndex];
-        const custName = cSelect.value ? cOpt.text : "[Customer Name]";
-        const custAddress = cSelect.value ? (cOpt.dataset.address || "") : "[Address]";
-        
-        document.getElementById('prev-customer-name').innerText = custName;
-        document.getElementById('prev-customer-address').innerText = custAddress;
-        document.getElementById('prev-ship-name').innerText = custName;
-        
-        const prodName = pSelect.value ? pSelect.options[pSelect.selectedIndex].text : "[Product]";
-        document.getElementById('prev-product').innerText = prodName;
-        
-        const qDate = document.getElementById('q-date').value;
-        const eDate = document.getElementById('q-expiry').value;
-        document.getElementById('prev-date').innerText = formatDateForDisplay(qDate);
-        document.getElementById('prev-expiry').innerText = formatDateForDisplay(eDate);
-
-        const qty = parseFloat(document.getElementById('q-qty').value) || 0;
-        const rate = parseFloat(document.getElementById('q-rate').value) || 0;
-        
-        if(totalTaxPercent === 0) {
-            totalTaxPercent = (parseFloat(document.getElementById('q-gst').value)||0) + (parseFloat(document.getElementById('q-cgst').value)||0) + (parseFloat(document.getElementById('q-sgst').value)||0);
+            if(showPreviewPopup) {
+                const pdfBlob = await html2pdf().set(opt).from(printArea).output('blob');
+                const blobUrl = URL.createObjectURL(pdfBlob);
+                document.getElementById('pdf-iframe').src = blobUrl;
+                document.getElementById('btn-actual-download').href = blobUrl;
+                document.getElementById('btn-actual-download').download = `${docNo}.pdf`;
+                openModal('pdf-preview-modal');
+            } else {
+                html2pdf().set(opt).from(printArea).save();
+            }
+            wrapper.style.display = 'none'; 
         }
 
-        document.getElementById('prev-qty').innerText = qty;
-        document.getElementById('prev-rate').innerText = rate.toFixed(2);
-        document.getElementById('prev-tax').innerText = totalTaxPercent + '%';
-        
-        const taxVal = (rate * qty) * (totalTaxPercent / 100);
-        document.getElementById('prev-amount').innerText = ((rate * qty) + taxVal).toFixed(2);
-        
-        const safeGrandTotal = grandTotal || parseFloat(document.getElementById('q-total').innerText) || 0;
-        document.getElementById('prev-grandtotal').innerText = safeGrandTotal.toFixed(2);
-        document.getElementById('prev-words').innerText = numberToWords(Math.round(safeGrandTotal));
-    }
-
-    // UPDATED FUNCTION: Fetch the saved number from Backend and show it immediately.
-    async function saveQuotation() {
-        const data = {
-            customer_id: document.getElementById('q-customer').value,
-            product_id: document.getElementById('q-product').value,
-            qty: document.getElementById('q-qty').value,
-            rate: document.getElementById('q-rate').value,
-            gst: document.getElementById('q-gst').value,
-            cgst: document.getElementById('q-cgst').value,
-            sgst: document.getElementById('q-sgst').value,
-            discount: document.getElementById('q-discount').value,
-            total: document.getElementById('q-total').innerText,
-            quotation_date: document.getElementById('q-date').value, 
-            expiry_date: document.getElementById('q-expiry').value
-        };
-
-        if(!data.customer_id || !data.product_id) return alert("Select Customer & Product!");
-
-        const response = await fetch('/api/quotations', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data)
-        });
-        
-        const result = await response.json();
-
-        if(result && result.length > 0) {
-            // Backend auto-generates this and sends it back in the result
-            const newQuotationNo = result[0].quotation_no;
-            
-            // Instantly update the text on the PDF preview
-            document.getElementById('prev-quotation-no').innerText = newQuotationNo;
-            
-            alert(`Quotation Created Successfully! \nQuotation Number: ${newQuotationNo}`);
-        } else {
-            alert("Error creating quotation.");
-        }
-    }
-
-    // --- DASHBOARDS ---
-    async function fetchQuotations() {
-        const res = await fetch('/api/quotations');
-        const data = await res.json();
-        const tbody = document.getElementById('quotation-table-body');
-        tbody.innerHTML = '';
-        data.forEach(q => {
-            const dateStr = formatDateForDisplay(q.quotation_date) || "N/A";
-            tbody.innerHTML += `<tr>
-                <td><strong>${q.quotation_no}</strong></td>
-                <td>${dateStr}</td>
-                <td>${q.customers?.name || 'N/A'}</td>
-                <td>${q.products?.name || 'N/A'}</td>
-                <td>₹${q.total}</td>
-                <td><button class="btn btn-sm btn-warning" onclick="generateInvoice(${q.id})">Invoice</button></td>
-            </tr>`;
-        });
-    }
-
-    async function fetchInvoices() {
-        const res = await fetch('/api/invoices');
-        const data = await res.json();
-        const tbody = document.getElementById('invoice-table-body');
-        tbody.innerHTML = '';
-        data.forEach(inv => {
-            const dateStr = formatDateForDisplay(inv.quotation_date) || "N/A";
-            tbody.innerHTML += `<tr>
-                <td><strong>${inv.invoice_no}</strong></td>
-                <td>${dateStr}</td>
-                <td>${inv.customers?.name || 'N/A'}</td>
-                <td>${inv.products?.name || 'N/A'}</td>
-                <td>₹${inv.total}</td>
-            </tr>`;
-        });
-    }
-
-    async function generateInvoice(id) {
-        if(!confirm("Generate Invoice from this quotation?")) return;
-        await fetch('/api/generate_invoice', { 
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'}, 
-            body: JSON.stringify({id: id})
-        });
-        alert("Invoice Generated Successfully!"); 
-        fetchQuotations(); 
-    }
-
-    window.onload = () => loadDataForSection('new-customer');
-</script>
+        window.onload = () => switchTab('customer-section');
+    </script>
 </body>
 </html>
