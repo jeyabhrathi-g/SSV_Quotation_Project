@@ -8,17 +8,20 @@ from dotenv import load_dotenv
 # Local development-க்காக மட்டும் .env லோடு செய்யும்
 load_dotenv()
 
-app = Flask(__name__)
+# Vercel-ல் template_folder பிரச்சனை வராமல் இருக்க இதைத் தெளிவாகக் குறிப்பிட வேண்டும்
+app = Flask(__name__, template_folder='templates')
 
 # Vercel-ல் உள்ள Environment Variables-ஐப் பெறுதல்
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-# Supabase connection - எரர் வராமல் இருக்க செக் செய்கிறோம்
-if not SUPABASE_URL or not SUPABASE_KEY:
-    supabase = None
-else:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Supabase connection - கனெக்ஷன் எரர் வந்தால் ஆப் கிராஷ் ஆகாமல் தடுக்கிறோம்
+supabase = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        print(f"Error connecting to Supabase: {e}")
 
 def parse_id(id_val):
     if id_val and str(id_val).isdigit():
@@ -27,9 +30,10 @@ def parse_id(id_val):
 
 @app.route('/')
 def index():
+    # Templates ஃபோல்டரில் உள்ள index.html-ஐ லோடு செய்யும்
     return render_template('index.html')
 
-# ---------------- PDF UPLOAD ---------------- #
+# ---------------- PDF UPLOAD (எந்த மாற்றமும் இல்லை) ---------------- #
 @app.route('/upload_pdf', methods=['POST'])
 def upload_pdf():
     try:
@@ -49,13 +53,13 @@ def upload_pdf():
         storage_path = f"{folder}/{file_name}"
         file_bytes = file.read()
 
-        # Upload to Supabase Storage
+        # Supabase Storage-க்கு அப்லோடு செய்தல்
         supabase.storage.from_("quotation_pdfs").upload(
             path=storage_path, file=file_bytes, file_options={"content-type": "application/pdf", "upsert": "true"}
         )
         public_url = supabase.storage.from_("quotation_pdfs").get_public_url(storage_path)
 
-        # Update table with PDF URL
+        # அந்தந்த டேபிளில் PDF லிங்க்-ஐ அப்டேட் செய்தல்
         if doc_type == 'quotation':
             supabase.table("quotations").update({"pdf_url": public_url}).eq("quotation_no", doc_no).execute()
         else:
@@ -65,7 +69,7 @@ def upload_pdf():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ---------------- CUSTOMER API ---------------- #
+# ---------------- CUSTOMER API (எந்த மாற்றமும் இல்லை) ---------------- #
 @app.route('/api/customers', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def manage_customers():
     try:
@@ -80,12 +84,11 @@ def manage_customers():
             if not data.get('name') or not data.get('phone') or not data.get('address'):
                 return jsonify({"error": "Name, Phone and Address are mandatory"}), 400
 
-            # Phone number cleaning logic
+            # போன் நம்பரில் உள்ள ஸ்பேஸ், குறியீடுகளை நீக்குதல்
             phone = str(data.get('phone', ''))
-            phone_digits = re.sub(r'\D', '', phone)
-            data['phone'] = phone_digits
+            data['phone'] = re.sub(r'\D', '', phone)
 
-            # Handling null values
+            # காலியாக உள்ள தரவுகளை None (null) என மாற்றுதல்
             for key in ['gst_number', 'email', 'address']:
                 if key in data and (data[key] == "" or data[key] == "null"):
                     data[key] = None
@@ -105,7 +108,7 @@ def manage_customers():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ---------------- PRODUCT API ---------------- #
+# ---------------- PRODUCT API (எந்த மாற்றமும் இல்லை) ---------------- #
 @app.route('/api/products', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def manage_products():
     try:
@@ -137,7 +140,7 @@ def manage_products():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ---------------- QUOTATION API ---------------- #
+# ---------------- QUOTATION API (எந்த மாற்றமும் இல்லை) ---------------- #
 @app.route('/api/quotations', methods=['GET', 'POST', 'PUT'])
 def manage_quotations():
     try:
@@ -153,7 +156,7 @@ def manage_quotations():
             month_year = current_date.strftime("%m-%y") 
             prefix = f"SSV-{month_year}-Q"
 
-            # Auto-increment logic for quotation number
+            # அடுத்த கொட்டேஷன் நம்பரை கண்டுபிடித்தல் (Auto-increment)
             existing = supabase.table('quotations').select('quotation_no').ilike('quotation_no', f"{prefix}%").execute()
             existing_nos = [row['quotation_no'] for row in existing.data] if existing.data else []
             
@@ -177,7 +180,7 @@ def manage_quotations():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ---------------- INVOICE API ---------------- #
+# ---------------- INVOICE API (எந்த மாற்றமும் இல்லை) ---------------- #
 @app.route('/api/invoices', methods=['GET', 'POST'])
 def manage_invoices():
     try:
@@ -191,14 +194,14 @@ def manage_invoices():
             data = request.json
             quote_no = data.get('quotation_no')
             
-            # Status Update
+            # கொட்டேஷனை க்ளோஸ் செய்தல்
             supabase.table('quotations').update({"status": "Closed"}).eq('quotation_no', quote_no).execute()
 
-            # Generate Invoice No from Quotation No
+            # இன்வாய்ஸ் நம்பரை உருவாக்குதல்
             inv_no = quote_no.replace('-Q', '-INV')
             data['invoice_no'] = inv_no
             
-            # Duplicate check
+            # ஏற்கனவே இன்வாய்ஸ் உள்ளதா என செக் செய்தல்
             check = supabase.table('invoices').select('id').eq('invoice_no', inv_no).execute()
             if check.data:
                  return jsonify({"error": "Invoice already generated for this quotation"}), 400
@@ -209,5 +212,6 @@ def manage_invoices():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Vercel contexts-க்கு இது தேவை
 if __name__ == '__main__':
     app.run(debug=True)
