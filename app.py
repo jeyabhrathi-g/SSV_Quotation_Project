@@ -5,13 +5,18 @@ from flask import Flask, render_template, request, jsonify
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
+# Local-la run panna mattum .env load aagum
 load_dotenv()
 
 app = Flask(__name__)
 
+# Vercel deployment-ku ithu romba mukkiyam
+app_instance = app 
+
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+# Supabase connection
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def parse_id(id_val):
@@ -31,7 +36,7 @@ def upload_pdf():
             return jsonify({"error": "No file provided"}), 400
         file = request.files['file']
         doc_no = request.form.get('doc_no')
-        doc_type = request.form.get('type') # 'quotation' or 'invoice'
+        doc_type = request.form.get('type') 
 
         if not doc_no:
             return jsonify({"error": "Document number missing"}), 400
@@ -156,7 +161,6 @@ def manage_quotations():
             return jsonify(res.data)
 
     except Exception as e:
-        print("Database Error:", str(e)) 
         return jsonify({"error": str(e)}), 500
 
 # ---------------- INVOICE API ---------------- #
@@ -186,5 +190,6 @@ def manage_invoices():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Vercel context check
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
